@@ -1,4 +1,5 @@
 import { MdTrackerDb } from "@/lib/db"
+import { registerMenuCommands } from "@/lib/register-menu-commands"
 import { handleLatest } from "@/lib/routes/latest/handleLatest"
 import {
     exportLocalHistory,
@@ -11,6 +12,9 @@ async function main() {
     addRxPlugin(RxDBDevModePlugin)
 
     const db = await MdTrackerDb.ainit()
+
+    registerMenuCommands(db)
+
     await exportLocalHistory(db)
     await importRemoteHistory(db)
 

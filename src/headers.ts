@@ -5,6 +5,6 @@ export default {
     match: ["https://mangadex.org/titles/latest"],
     grant: [],
     version: "0.1",
-    updateURL: "@todo",
-    downloadURL: "@todo",
+    // updateURL: "@todo",
+    // downloadURL: "@todo",
 } satisfies MonkeyUserScript

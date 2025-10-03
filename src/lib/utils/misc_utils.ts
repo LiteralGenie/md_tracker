@@ -342,3 +342,38 @@ export function assert(cond: boolean, msg?: string) {
         throw new Error(msg)
     }
 }
+
+export function query<T extends Element | HTMLElement>(
+    root: Element | HTMLElement | Document | ShadowRoot,
+    selector: string
+): T | null {
+    return root.querySelector(selector) as T | null
+}
+
+export async function postJson<T = any>(
+    url: string,
+    body: Record<string, any>,
+    opts?: RequestInit
+): Promise<T> {
+    const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            ...opts?.headers,
+        },
+        body: JSON.stringify(body),
+        ...opts,
+    })
+
+    if (resp.status < 200 || resp.status >= 300) {
+        const e = new Error()
+        e.cause = {
+            type: "postJson",
+            response: resp,
+        }
+        throw e
+    }
+
+    return await resp.json()
+}
