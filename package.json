@@ -1,0 +1,21 @@
+{
+    "version": "1.0.0",
+    "main": "index.ts",
+    "scripts": {
+        "dev": "trap 'kill 0' EXIT; npx vite build --mode development --watch & python3 -m http.server --directory dist/ 6231",
+        "build": "vite build",
+        "test": "vitest"
+    },
+    "devDependencies": {
+        "@types/node": "^22.13.10",
+        "radash": "^12.1.1",
+        "vite": "^7.1.8",
+        "vite-plugin-monkey": "^7.1.4",
+        "vitest": "^3.2.4"
+    },
+    "type": "module",
+    "dependencies": {
+        "rxdb": "^16.19.1",
+        "rxjs": "^7.8.2"
+    }
+}
