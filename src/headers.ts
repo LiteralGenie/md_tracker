@@ -1,9 +1,9 @@
 import { MonkeyUserScript } from "vite-plugin-monkey"
 
 export default {
-    name: "@todo",
+    name: "md_tracker",
     match: ["https://mangadex.org/titles/latest"],
-    grant: ["unsafeWindow", "GM_addStyle"],
+    grant: [],
     version: "0.1",
     updateURL: "@todo",
     downloadURL: "@todo",

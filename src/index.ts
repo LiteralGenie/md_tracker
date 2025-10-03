@@ -1,6 +1,9 @@
 import { MdTrackerDb } from "@/lib/db"
 import { handleLatest } from "@/lib/routes/latest/handleLatest"
-import { syncMdHistory } from "@/lib/sync-md-history"
+import {
+    exportLocalHistory,
+    importRemoteHistory,
+} from "@/lib/sync-md-history"
 import { addRxPlugin } from "rxdb"
 import { RxDBDevModePlugin } from "rxdb/plugins/dev-mode"
 
@@ -8,9 +11,10 @@ async function main() {
     addRxPlugin(RxDBDevModePlugin)
 
     const db = await MdTrackerDb.ainit()
-    await syncMdHistory(db)
+    await exportLocalHistory(db)
+    await importRemoteHistory(db)
 
-    await doRouting()
+    await doRouting(db)
 }
 
 const ROUTES = [
@@ -20,14 +24,14 @@ const ROUTES = [
     },
 ]
 
-async function doRouting() {
+async function doRouting(db: MdTrackerDb) {
     for (const route of ROUTES) {
         for (const patt of route.patts) {
             const exp = new RegExp(patt)
 
             const isMatch = exp.test(window.location.pathname)
             if (isMatch) {
-                await route.handler()
+                await route.handler(db)
             }
         }
     }

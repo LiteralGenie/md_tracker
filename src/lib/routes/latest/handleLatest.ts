@@ -1,8 +1,6 @@
 import { MdTrackerDb } from "@/lib/db"
 
-export async function handleLatest() {
-    const db = await MdTrackerDb.ainit()
-}
+export async function handleLatest(db: MdTrackerDb) {}
 
 export interface LatestPage {
     items: Array<{
