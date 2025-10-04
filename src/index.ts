@@ -1,5 +1,6 @@
 import { MdTrackerDb } from "@/lib/db"
 import { registerMenuCommands } from "@/lib/register-menu-commands"
+import { replicateDb } from "@/lib/replicate-db"
 import { handleLatest } from "@/lib/routes/latest/handleLatest"
 import {
     exportLocalHistory,
@@ -17,6 +18,8 @@ async function main() {
 
     await exportLocalHistory(db)
     await importRemoteHistory(db)
+
+    await replicateDb(db)
 
     await doRouting(db)
 }

@@ -377,3 +377,23 @@ export async function postJson<T = any>(
 
     return await resp.json()
 }
+
+export async function getJson<T = any>(
+    url: string,
+    opts?: RequestInit
+): Promise<T> {
+    const resp = await fetch(url, {
+        ...opts,
+    })
+
+    if (resp.status < 200 || resp.status >= 300) {
+        const e = new Error()
+        e.cause = {
+            type: "postJson",
+            response: resp,
+        }
+        throw e
+    }
+
+    return await resp.json()
+}

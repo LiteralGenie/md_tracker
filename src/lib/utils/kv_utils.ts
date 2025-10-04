@@ -1,38 +1,75 @@
-import { KV_URL, META_KEY_KV_SESSION } from "@/lib/constants"
+import { KV_URL, META_KEY } from "@/lib/constants"
 import { MdTrackerDb } from "@/lib/db"
+import { postJson, uuidWithFallback } from "@/lib/utils/misc_utils"
 
-export async function loginKv(
-    username: string,
-    password: string
-): string {
-    await fetch(KV_URL + "/create_kv/", {
-        headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
+export interface CreateKvTableOptions {
+    name: string
+    allow_guest_read: boolean
+    allow_guest_write: boolean
+}
+
+export async function createKvTable(
+    opts: CreateKvTableOptions,
+    sid: string
+) {
+    return await postJson(KV_URL + "/create_kv", opts, {
+        headers: { sid },
     })
 }
 
-export function createKvTable() {}
-
-interface KvSession {
+export interface KvSession {
     sid: string
     username: string
+    expires: string
 }
 
 export async function findKvSession(
     db: MdTrackerDb
 ): Promise<KvSession | null> {
-    const session_query = await db.rxdb.meta
+    const sessionQuery = await db.rxdb.meta
         .findOne({
             selector: {
-                key: META_KEY_KV_SESSION,
+                key: META_KEY.KV_SESSION,
             },
         })
         .exec()
 
-    return session_query?.value
-        ? JSON.parse(session_query.value)
-        : null
+    if (!sessionQuery?.value) {
+        return null
+    }
+
+    const session: KvSession = JSON.parse(sessionQuery.value)
+    if (session.expires < new Date().toISOString()) {
+        alert("[MdTracker] Sync session expired")
+
+        await sessionQuery.remove()
+
+        return null
+    }
+
+    return session
+}
+
+export async function findClientId(db: MdTrackerDb) {
+    const idQuery = await db.rxdb.meta
+        .findOne({
+            selector: {
+                key: META_KEY.CLIENT_ID,
+            },
+        })
+        .exec()
+
+    if (idQuery?.value) {
+        const clientId = idQuery.value
+        return clientId
+    } else {
+        const clientId = uuidWithFallback()
+
+        await db.rxdb.meta.insert({
+            key: META_KEY.CLIENT_ID,
+            value: clientId,
+        })
+
+        return clientId
+    }
 }

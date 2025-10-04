@@ -40,7 +40,7 @@ export async function exportLocalHistory(db: MdTrackerDb) {
             timestamp,
         })
     }
-    await db.rxdb.meta.insert({
+    await db.rxdb.meta.upsert({
         key: "last_history_scan",
         value: JSON.stringify({
             timestamp: toInsert[0].timestamp,
@@ -84,7 +84,7 @@ function setLocalHistory(history: Array<[string, string]>) {
 
     data.readingHistory._readingHistory = sorted
 
-    // localStorage.setItem("md", JSON.stringify(data, null, 2))
+    localStorage.setItem("md", JSON.stringify(data, null, 2))
 }
 
 interface LastHistoryScan {

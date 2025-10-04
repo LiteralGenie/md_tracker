@@ -1,3 +1,6 @@
-export const KV_URL = "http://localhost:8267"
+export const KV_URL = "https://kv.gisadan.dev"
 
-export const META_KEY_KV_SESSION = "kv_session"
+export const META_KEY = {
+    KV_SESSION: "kv_session",
+    CLIENT_ID: "client_id",
+}

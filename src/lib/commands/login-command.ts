@@ -1,4 +1,4 @@
-import { KV_URL, META_KEY_KV_SESSION } from "@/lib/constants"
+import { KV_URL, META_KEY } from "@/lib/constants"
 import { MdTrackerDb } from "@/lib/db"
 import { findKvSession } from "@/lib/utils/kv_utils"
 import { postJson, query } from "@/lib/utils/misc_utils"
@@ -25,7 +25,7 @@ export async function registerLoginCommand(db: MdTrackerDb) {
             console.log("Generated sync server session", update)
 
             await db.rxdb.meta.upsert({
-                key: META_KEY_KV_SESSION,
+                key: META_KEY.KV_SESSION,
                 value: JSON.stringify(update),
             })
         },
@@ -202,6 +202,7 @@ export async function promptLogin(username?: string): Promise<null | {
 
     if (username) {
         usernameEl.value = username
+        usernameEl.focus()
     }
 
     const result: ReturnType<typeof promptLogin> = new Promise(
