@@ -1,6 +1,8 @@
 import { Mdb } from "@/lib/db"
 
-export async function handleLatest(db: Mdb) {}
+export async function handleLatest(db: Mdb) {
+    return async () => {}
+}
 
 export interface LatestPage {
     items: Array<{

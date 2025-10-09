@@ -25,6 +25,8 @@ export async function registerLoginCommand(db: Mdb) {
             console.log("Generated sync server session", update)
 
             await db.put("meta", update, META_KEY.KV_SESSION)
+
+            window.location.href = window.location.href
         },
         {
             id: "login",
@@ -144,6 +146,14 @@ export async function promptLogin(username?: string): Promise<null | {
             .v-space {
                 height: 1em;
             }
+
+            .text-muted {
+                color: color-mix(
+                    in oklab,
+                    white,
+                    transparent 40%
+                );
+            }
         </style>
 
         <dialog>
@@ -151,6 +161,19 @@ export async function promptLogin(username?: string): Promise<null | {
                 <h1>Sync Server Login</h1>
 
                 <div class="v-space"></div> 
+
+                ${
+                    username
+                        ? `
+                            <p class="text-muted">
+                                Currently logged in as ${username}
+                            </p>
+
+                            <div class="v-space"></div>
+                        `
+                        : ""
+                }
+                
 
                 <p>
                     Database will be periodically synced to / from <a href="${KV_URL}">${KV_URL}</a>

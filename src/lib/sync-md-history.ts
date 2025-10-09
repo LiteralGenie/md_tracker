@@ -33,12 +33,17 @@ export async function exportLocalHistory(db: Mdb) {
             cid,
             timestamp,
         })
-        await db.put("chapter_history_replication_history", {
-            id,
-            isReplicated: 0,
-            fromRemote: false,
-            updatedAt: new Date().toISOString(),
-        })
+
+        if (
+            !(await db.get("chapter_history_replication_history", id))
+        ) {
+            await db.add("chapter_history_replication_history", {
+                id,
+                isReplicated: 0,
+                fromRemote: false,
+                updatedAt: new Date().toISOString(),
+            })
+        }
 
         console.log(`Exporting MD history item`, {
             id,
