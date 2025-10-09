@@ -1,6 +1,6 @@
-import { MdTrackerDb } from "@/lib/db"
+import { Mdb } from "@/lib/db"
 
-export async function handleLatest(db: MdTrackerDb) {}
+export async function handleLatest(db: Mdb) {}
 
 export interface LatestPage {
     items: Array<{

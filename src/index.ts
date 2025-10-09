@@ -1,27 +1,23 @@
-import { MdTrackerDb } from "@/lib/db"
+import { initMdb, Mdb } from "@/lib/db"
 import { registerMenuCommands } from "@/lib/register-menu-commands"
-import { replicateDb } from "@/lib/replicate-db"
+import { startDbReplication } from "@/lib/replicate-db"
 import { handleLatest } from "@/lib/routes/latest/handleLatest"
 import {
     exportLocalHistory,
     importRemoteHistory,
 } from "@/lib/sync-md-history"
-import { addRxPlugin } from "rxdb"
-import { RxDBDevModePlugin } from "rxdb/plugins/dev-mode"
 
 async function main() {
-    addRxPlugin(RxDBDevModePlugin)
+    const mdb = await initMdb()
 
-    const db = await MdTrackerDb.ainit()
+    registerMenuCommands(mdb)
 
-    registerMenuCommands(db)
+    await exportLocalHistory(mdb)
+    await importRemoteHistory(mdb)
 
-    await exportLocalHistory(db)
-    await importRemoteHistory(db)
+    await startDbReplication(mdb)
 
-    await replicateDb(db)
-
-    await doRouting(db)
+    await doRouting(mdb)
 }
 
 const ROUTES = [
@@ -31,14 +27,14 @@ const ROUTES = [
     },
 ]
 
-async function doRouting(db: MdTrackerDb) {
+async function doRouting(mdb: Mdb) {
     for (const route of ROUTES) {
         for (const patt of route.patts) {
             const exp = new RegExp(patt)
 
             const isMatch = exp.test(window.location.pathname)
             if (isMatch) {
-                await route.handler(db)
+                await route.handler(mdb)
             }
         }
     }

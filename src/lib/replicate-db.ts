@@ -1,16 +1,19 @@
 import { KV_URL } from "@/lib/constants"
-import { MdTrackerDb } from "@/lib/db"
+import {
+    Mdb,
+    MdTrackerSchema,
+    ReplicationHistoryCheckpoint,
+} from "@/lib/db"
 import {
     createKvTable,
     findClientId,
     findKvSession,
     KvSession,
 } from "@/lib/utils/kv_utils"
-import { postJson } from "@/lib/utils/misc_utils"
+import { newIsoDate, postJson } from "@/lib/utils/misc_utils"
 import { last } from "radash"
-import { replicateRxCollection } from "rxdb/plugins/replication"
 
-export async function replicateDb(db: MdTrackerDb) {
+export async function startDbReplication(db: Mdb) {
     const session = await findKvSession(db)
     if (!session) {
         console.warn(
@@ -22,130 +25,242 @@ export async function replicateDb(db: MdTrackerDb) {
     await replicateChapterHistory(db, session)
 }
 
-async function replicateChapterHistory(
-    db: MdTrackerDb,
-    session: KvSession
-) {
-    const clientId = await findClientId(db)
-    const now = new Date().toISOString()
+async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
+    const clientId = await findClientId(mdb)
 
-    await createKvTable(
-        {
-            name: "mdt_chapter_history",
-            allow_guest_read: false,
-            allow_guest_write: false,
-        },
-        session.sid
-    )
+    await createChapterHistoryTable()
 
-    await createKvTable(
-        {
-            name: "mdt_checkpoints",
-            allow_guest_read: false,
-            allow_guest_write: false,
-        },
-        session.sid
-    )
+    await pushChanges()
+    await pullChanges()
 
-    // @todo: ditch rxdb, the only thing we're getting is schema to type hints
-    //        docs (eg for replication) are hard to read and
-    //        we're implementing almost everything (conflict resolution, insertions, etc) ourselves
-    //        plus there's upsell ads everywhere
-    const replicationState = await replicateRxCollection({
-        collection: db.rxdb.collections.chapter_history,
-        replicationIdentifier: "???",
-        push: {
-            async handler(rows) {
-                console.info(`Pushing ${rows.length} rows to remote`)
-
-                await postJson(
-                    KV_URL + "/kv/mdt_chapter_history",
-                    {
-                        items: rows.map((r) => [
-                            r.newDocumentState.id,
-                            JSON.stringify({
-                                ...r.newDocumentState,
-                                _clientId: clientId,
-                                _updatedAt: now,
-                            }),
-                        ]),
-                    },
-                    {
-                        headers: {
-                            sid: session.sid,
-                        },
-                    }
-                )
-                return []
+    async function createChapterHistoryTable() {
+        await createKvTable(
+            {
+                name: "mdt_chapter_history",
+                allow_guest_read: false,
+                allow_guest_write: false,
             },
-        },
-        pull: {
-            // @todo: there's technically a race condition if ...
-            //          client A starts   push
-            //          client B starts   push
-            //          client B finishes push
-            //          client C starts   pull
-            //          client C finishes pull
-            //          client A finishes push
-            //
-            //        which causes C to only receive B's and never A's
-            //        because C's checkpoint will update to the date from B
-            //        which is later than A
-            //
-            //        maybe have an append-only table as a changelog
-            //        each push generates an entry
-            //        pulls check the changelog with rowid as checkpoint instead of timestamp
+            session.sid
+        )
 
-            async handler(checkpoint?: { updatedAt: string }) {
-                console.info(
-                    "Pulling updates with checkpoint",
-                    checkpoint
+        await postJson(
+            KV_URL + `/execute/mdt_chapter_history`,
+            {
+                sql: `--sql
+                CREATE TABLE IF NOT EXISTS meta (
+                    key         TEXT        PRIMARY KEY,
+                    value       BLOB        NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS changelog (
+                    id          INTEGER     PRIMARY KEY,
+                    client_id   TEXT        NOT NULL,
+                    rows        JSON        NOT NULL
+                );
+
+                INSERT OR IGNORE INTO meta (
+                    key, value
+                ) VALUES (
+                    'changelog_id', 1
                 )
-
-                const data = await postJson<{ value: string }[]>(
-                    KV_URL + `/execute/mdt_chapter_history`,
-                    {
-                        sql: `--sql
-                            SELECT value
-                            FROM kv
-                            WHERE
-                                JSON_EXTRACT(value, '$._clientId') != '${clientId}'
-                                AND JSON_EXTRACT(value, '$._updatedAt') > '${
-                                    checkpoint?.updatedAt ?? 0
-                                }'
-                            ORDER BY JSON_EXTRACT(value, '$._updatedAt') ASC
-                            ;
-                        `,
-                    },
-                    {
-                        headers: {
-                            sid: session.sid,
-                        },
-                    }
-                )
-
-                const rows = data.map((raw) => JSON.parse(raw.value))
-                const checkpointUpdate = {
-                    updatedAt:
-                        last(rows)?._updatedAt ||
-                        checkpoint?.updatedAt,
-                }
-
-                console.info(
-                    `Pulling ${data.length} rows from remote with checkpoint update`,
-                    checkpointUpdate
-                )
-
-                for (const r of rows) {
-                    delete r["_clientId"]
-                    delete r["_updatedAt"]
-                }
-
-                return {
-                    documents: rows,
-                    checkpoint: checkpointUpdate,
-                }
+            `,
             },
-        },
-    })
+            {
+                headers: {
+                    sid: session.sid,
+                },
+            }
+        )
+    }
+
+    async function pushChanges() {
+        const needsReplication = await mdb.getAllFromIndex(
+            "chapter_history_replication_history",
+            "isReplicated",
+            0
+        )
+        if (needsReplication.length === 0) {
+            return
+        }
+
+        const changes = await Promise.all(
+            needsReplication.map(
+                async (r) => (await mdb.get("chapter_history", r.id))!
+            )
+        )
+
+        console.log(
+            `Pushing ${changes.length} chapter_history rows`,
+            changes
+        )
+
+        const kvInserts = changes.map(
+            // Replacements don't happen normally, only when client / server db is manually edited
+            (r) => `--sql
+                INSERT OR REPLACE INTO kv (
+                    key, value
+                ) VALUES (
+                    '${r.id}',
+                    '${JSON.stringify(r)}'
+                );
+            `
+        )
+
+        const changelogInsert = `--sql
+            INSERT INTO changelog (
+                id, client_id, rows
+            ) VALUES (
+                (SELECT value + 1 FROM meta WHERE key = 'changelog_id'),
+                '${clientId}',
+                '${JSON.stringify(changes.map((r) => r.id))}'
+            );
+        `
+
+        const metaUpdate = `--sql
+            UPDATE meta
+            SET value = (
+                SELECT value + 1 from meta WHERE key = 'changelog_id'
+            )
+            WHERE key = 'changelog_id';
+        `
+
+        const script = `--sql
+            BEGIN;
+
+            ${kvInserts.join("\n")}
+
+            ${changelogInsert}
+
+            ${metaUpdate}
+
+            COMMIT;
+        `
+
+        await postJson(
+            KV_URL + "/execute/mdt_chapter_history",
+            {
+                sql: script,
+            },
+            {
+                headers: {
+                    sid: session.sid,
+                },
+            }
+        )
+
+        const txn = mdb.transaction(
+            "chapter_history_replication_history",
+            "readwrite"
+        )
+        for (const r of needsReplication) {
+            await txn
+                .objectStore("chapter_history_replication_history")
+                .put({
+                    ...r,
+                    isReplicated: 1,
+                    updatedAt: newIsoDate(),
+                })
+        }
+        await txn.done
+    }
+
+    async function pullChanges() {
+        const checkpoint = (await mdb.get(
+            "meta",
+            "chapter_history_replication_checkpoint"
+        )) as ReplicationHistoryCheckpoint | undefined
+
+        console.info("Pulling updates with checkpoint", checkpoint)
+
+        const changes = await postJson<
+            Array<{ id: number; rows: string }>
+        >(
+            KV_URL + `/select/mdt_chapter_history`,
+            {
+                sql: `--sql
+                    SELECT id, rows
+                    FROM changelog c
+                    WHERE
+                        id > ${checkpoint?.changelog_id || 0}
+                        AND client_id != '${clientId}'
+                    ORDER BY id ASC
+                    ;
+                `,
+            },
+            {
+                headers: {
+                    sid: session.sid,
+                },
+            }
+        )
+        if (!changes.length) {
+            return
+        }
+
+        const checkpointUpdate: ReplicationHistoryCheckpoint = {
+            changelog_id: last(changes)!.id,
+        }
+
+        const ids: string[] = changes.flatMap(({ rows }) =>
+            JSON.parse(rows)
+        )
+
+        const updates: Array<{ value: string }> = await postJson(
+            KV_URL + "/select/mdt_chapter_history",
+            {
+                sql: `--sql
+                    SELECT value
+                    FROM kv
+                    WHERE key IN (
+                        ${ids.map((id) => `'${id}'`).join(", ")}
+                    )
+                `,
+            },
+            {
+                headers: {
+                    sid: session.sid,
+                },
+            }
+        )
+
+        const documents = updates.map((r) =>
+            JSON.parse(r.value)
+        ) as Array<MdTrackerSchema["chapter_history"]["value"]>
+
+        console.info(
+            `Pulled ${documents.length} rows from remote with checkpoint update`,
+            checkpointUpdate,
+            documents
+        )
+
+        const txn = mdb.transaction(
+            [
+                "meta",
+                "chapter_history",
+                "chapter_history_replication_history",
+            ] as const,
+            "readwrite"
+        )
+
+        await txn
+            .objectStore("meta")
+            .put(
+                checkpointUpdate,
+                "chapter_history_replication_checkpoint"
+            )
+
+        for (const r of documents) {
+            await txn.objectStore("chapter_history").put(r)
+            await txn
+                .objectStore("chapter_history_replication_history")
+                .put({
+                    id: r.id,
+                    fromRemote: true,
+                    isReplicated: 1,
+                    updatedAt: newIsoDate(),
+                })
+        }
+
+        await txn.done
+    }
 }

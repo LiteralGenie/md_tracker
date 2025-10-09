@@ -1,5 +1,5 @@
 import { range, sleep, sum, zip } from "radash"
-import { InferGuardType, Or } from "./type_utils"
+import { InferGuardType, ISODate, Or } from "./type_utils"
 
 export function split<T, TPass extends T = T, TFail extends T = T>(
     xs: T[],
@@ -396,4 +396,8 @@ export async function getJson<T = any>(
     }
 
     return await resp.json()
+}
+
+export function newIsoDate(): ISODate {
+    return new Date().toISOString()
 }

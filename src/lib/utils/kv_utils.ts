@@ -1,5 +1,5 @@
 import { KV_URL, META_KEY } from "@/lib/constants"
-import { MdTrackerDb } from "@/lib/db"
+import { Mdb } from "@/lib/db"
 import { postJson, uuidWithFallback } from "@/lib/utils/misc_utils"
 
 export interface CreateKvTableOptions {
@@ -24,52 +24,31 @@ export interface KvSession {
 }
 
 export async function findKvSession(
-    db: MdTrackerDb
+    db: Mdb
 ): Promise<KvSession | null> {
-    const sessionQuery = await db.rxdb.meta
-        .findOne({
-            selector: {
-                key: META_KEY.KV_SESSION,
-            },
-        })
-        .exec()
+    const session: KvSession | undefined = await db.get(
+        "meta",
+        META_KEY.KV_SESSION
+    )
 
-    if (!sessionQuery?.value) {
+    if (!session) {
         return null
-    }
-
-    const session: KvSession = JSON.parse(sessionQuery.value)
-    if (session.expires < new Date().toISOString()) {
+    } else if (session.expires < new Date().toISOString()) {
         alert("[MdTracker] Sync session expired")
-
-        await sessionQuery.remove()
-
+        await db.delete("meta", META_KEY.KV_SESSION)
         return null
     }
 
     return session
 }
 
-export async function findClientId(db: MdTrackerDb) {
-    const idQuery = await db.rxdb.meta
-        .findOne({
-            selector: {
-                key: META_KEY.CLIENT_ID,
-            },
-        })
-        .exec()
+export async function findClientId(db: Mdb) {
+    let clientId = await db.get("meta", META_KEY.CLIENT_ID)
 
-    if (idQuery?.value) {
-        const clientId = idQuery.value
-        return clientId
-    } else {
-        const clientId = uuidWithFallback()
-
-        await db.rxdb.meta.insert({
-            key: META_KEY.CLIENT_ID,
-            value: clientId,
-        })
-
-        return clientId
+    if (!clientId) {
+        clientId = uuidWithFallback()
+        await db.put("meta", clientId, META_KEY.CLIENT_ID)
     }
+
+    return clientId
 }

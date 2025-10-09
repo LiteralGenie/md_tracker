@@ -22,3 +22,5 @@ export type InferGuardType<T> =
     T extends (x: any) => x is infer V ? V : never
 
 export type Or<A, B> = A extends never ? B : A
+
+export type ISODate = string

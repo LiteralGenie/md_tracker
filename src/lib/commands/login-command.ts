@@ -1,10 +1,10 @@
 import { KV_URL, META_KEY } from "@/lib/constants"
-import { MdTrackerDb } from "@/lib/db"
+import { Mdb } from "@/lib/db"
 import { findKvSession } from "@/lib/utils/kv_utils"
 import { postJson, query } from "@/lib/utils/misc_utils"
 import { GM_registerMenuCommand } from "vite-plugin-monkey/dist/client"
 
-export async function registerLoginCommand(db: MdTrackerDb) {
+export async function registerLoginCommand(db: Mdb) {
     const session = await findKvSession(db)
 
     const caption = session
@@ -24,10 +24,7 @@ export async function registerLoginCommand(db: MdTrackerDb) {
             })
             console.log("Generated sync server session", update)
 
-            await db.rxdb.meta.upsert({
-                key: META_KEY.KV_SESSION,
-                value: JSON.stringify(update),
-            })
+            await db.put("meta", update, META_KEY.KV_SESSION)
         },
         {
             id: "login",

@@ -1,83 +1,67 @@
-import {
-    createRxDatabase,
-    ExtractDocumentTypeFromTypedRxJsonSchema,
-    RxCollection,
-    RxDatabase,
-    toTypedRxJsonSchema,
-} from "rxdb"
-import { getRxStorageDexie } from "rxdb/plugins/storage-dexie"
-import { wrappedValidateAjvStorage } from "rxdb/plugins/validate-ajv"
+import { ISODate } from "@/lib/utils/type_utils"
+import { DBSchema, IDBPDatabase, openDB } from "idb"
 
-export class MdTrackerDb {
-    constructor(public rxdb: RxDatabase<SchemaType>) {}
+export type Mdb = IDBPDatabase<MdTrackerSchema>
 
-    static async ainit() {
-        const db = await MdTrackerDb.initDb()
+export async function initMdb(): Promise<Mdb> {
+    return await openDB<MdTrackerSchema>("md_tracker", 1, {
+        upgrade(db) {
+            const meta = db.createObjectStore("meta", {
+                keyPath: null,
+                autoIncrement: false,
+            })
 
-        return new MdTrackerDb(db)
+            const chapter_history = db.createObjectStore(
+                "chapter_history",
+                {
+                    keyPath: "id",
+                }
+            )
+
+            const chapter_history_replication_history =
+                db.createObjectStore(
+                    "chapter_history_replication_history",
+                    {
+                        keyPath: "id",
+                    }
+                )
+            chapter_history_replication_history.createIndex(
+                "isReplicated",
+                "isReplicated"
+            )
+        },
+    })
+}
+
+export interface MdTrackerSchema extends DBSchema {
+    meta: {
+        key: string
+        value: any
     }
-
-    private static async initDb() {
-        const db = await createRxDatabase<any>({
-            name: "md_tracker",
-            storage: wrappedValidateAjvStorage({
-                storage: getRxStorageDexie(),
-            }),
-        })
-
-        await db.addCollections(DB_SCHEMA)
-
-        return db
+    chapter_history: {
+        key: string
+        value: {
+            id: string
+            cid: string
+            timestamp: ISODate
+        }
+    }
+    chapter_history_replication_history: {
+        key: string
+        value: ReplicationHistoryItem
+        indexes: {
+            isReplicated: ReplicationHistoryItem["isReplicated"]
+        }
     }
 }
 
-const DB_SCHEMA = {
-    meta: {
-        schema: {
-            version: 0,
-            primaryKey: "key",
-            type: "object",
-            properties: {
-                key: {
-                    type: "string",
-                    maxLength: 100,
-                },
-                value: {
-                    type: "string",
-                },
-            },
-        },
-    },
-    chapter_history: {
-        schema: {
-            version: 0,
-            primaryKey: "id",
-            type: "object",
-            properties: {
-                id: {
-                    type: "string",
-                    maxLength: 100,
-                },
-                cid: {
-                    type: "string",
-                },
-                timestamp: {
-                    type: "string",
-                    format: "date-time",
-                },
-            },
-            required: ["id", "cid", "timestamp"],
-        },
-    },
-} as const
+export type ReplicationHistoryItem = {
+    id: any
+    isReplicated: 0 | 1
+    fromRemote: boolean
+    updatedAt: ISODate
+}
 
-type TOS = typeof DB_SCHEMA
-type SchemaType = {
-    [K in keyof TOS]: RxCollection<
-        ExtractDocumentTypeFromTypedRxJsonSchema<
-            ReturnType<typeof toTypedRxJsonSchema<TOS[K]["schema"]>>
-        >,
-        {},
-        {}
-    >
+export interface ReplicationHistoryCheckpoint {
+    changelog_id: number
 }

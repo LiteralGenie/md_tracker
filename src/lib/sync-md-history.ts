@@ -1,10 +1,10 @@
-import { MdTrackerDb } from "@/lib/db"
+import { Mdb } from "@/lib/db"
 import { alphabetical } from "radash"
 
 /**
  * Export list of chapters-read from mangadex's localstorage to our db
  */
-export async function exportLocalHistory(db: MdTrackerDb) {
+export async function exportLocalHistory(db: Mdb) {
     const localHistory = readLocalHistory()
     if (!localHistory) {
         return
@@ -28,10 +28,16 @@ export async function exportLocalHistory(db: MdTrackerDb) {
 
     for (const { cid, timestamp } of toInsert) {
         const id = `${timestamp}_${cid.substring(0, 10)}`
-        await db.rxdb.chapter_history.upsert({
+        await db.put("chapter_history", {
             id,
             cid,
             timestamp,
+        })
+        await db.put("chapter_history_replication_history", {
+            id,
+            isReplicated: 0,
+            fromRemote: false,
+            updatedAt: new Date().toISOString(),
         })
 
         console.log(`Exporting MD history item`, {
@@ -40,12 +46,13 @@ export async function exportLocalHistory(db: MdTrackerDb) {
             timestamp,
         })
     }
-    await db.rxdb.meta.upsert({
-        key: "last_history_scan",
-        value: JSON.stringify({
+    await db.put(
+        "meta",
+        {
             timestamp: toInsert[0].timestamp,
-        } satisfies LastHistoryScan),
-    })
+        } satisfies LastHistoryScan,
+        "last_history_scan"
+    )
 }
 
 function readLocalHistory(): Array<[string, string]> | null {
@@ -91,28 +98,17 @@ interface LastHistoryScan {
     timestamp: string
 }
 
-async function getLastScan(
-    db: MdTrackerDb
-): Promise<LastHistoryScan | null> {
-    const raw = await db.rxdb.meta
-        .findOne({
-            selector: {
-                key: "last_history_scan",
-            },
-        })
-        .exec()
-    if (!raw) {
+async function getLastScan(db: Mdb): Promise<LastHistoryScan | null> {
+    const lastScan = await db.get("meta", "last_history_scan")
+    if (!lastScan) {
         return null
     }
 
-    const lastScan: LastHistoryScan = JSON.parse(raw.get("value"))
     return lastScan
 }
 
-export async function importRemoteHistory(db: MdTrackerDb) {
-    const remoteHistory = (
-        await db.rxdb.chapter_history.find().exec()
-    ).map(
+export async function importRemoteHistory(db: Mdb) {
+    const remoteHistory = (await db.getAll("chapter_history")).map(
         ({ timestamp, cid }) => [cid, timestamp] as [string, string]
     )
 

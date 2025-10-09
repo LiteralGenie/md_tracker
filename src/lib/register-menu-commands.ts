@@ -1,6 +1,6 @@
 import { registerLoginCommand } from "@/lib/commands/login-command"
-import { MdTrackerDb } from "@/lib/db"
+import { Mdb } from "@/lib/db"
 
-export async function registerMenuCommands(db: MdTrackerDb) {
+export async function registerMenuCommands(db: Mdb) {
     await registerLoginCommand(db)
 }
