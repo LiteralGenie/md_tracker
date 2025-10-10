@@ -30,7 +30,17 @@ export default defineConfig((config) => {
                         }
 
                         // @ts-ignore
-                        window.INIT_STYLES = () => initCss(styles)
+                        window.MD_TRACKER_STYLES =
+                            // @ts-ignore
+                            window.MD_TRACKER_STYLES ?? ""
+
+                        // @ts-ignore
+                        window.MD_TRACKER_STYLES += "\n\n" + styles
+
+                        // @ts-ignore
+                        window.INIT_STYLES = () =>
+                            // @ts-ignore
+                            initCss(window.MD_TRACKER_STYLES)
                     },
                 },
             }),

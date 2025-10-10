@@ -350,6 +350,13 @@ export function query<T extends Element | HTMLElement>(
     return root.querySelector(selector) as T | null
 }
 
+export function queryAll<T extends Element | HTMLElement>(
+    root: Element | HTMLElement | Document | ShadowRoot,
+    selector: string
+): T[] {
+    return [...root.querySelectorAll(selector)] as T[]
+}
+
 export async function postJson<T = any>(
     url: string,
     body: Record<string, any>,
@@ -398,6 +405,6 @@ export async function getJson<T = any>(
     return await resp.json()
 }
 
-export function newIsoDate(): ISODate {
+export function nowIso(): ISODate {
     return new Date().toISOString()
 }

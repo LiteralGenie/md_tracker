@@ -29,6 +29,10 @@ export async function initMdb(): Promise<Mdb> {
                 "isReplicated",
                 "isReplicated"
             )
+
+            const md_api = db.createObjectStore("md_api", {
+                keyPath: "id",
+            })
         },
     })
 }
@@ -51,6 +55,14 @@ export interface MdTrackerSchema extends DBSchema {
         value: ReplicationHistoryItem
         indexes: {
             isReplicated: ReplicationHistoryItem["isReplicated"]
+        }
+    }
+    md_api: {
+        key: string
+        value: {
+            id: string
+            data: any
+            updatedAt: ISODate
         }
     }
 }

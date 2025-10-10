@@ -49,7 +49,7 @@ async function main() {
 
 const ROUTES = [
     {
-        patts: ["/titles/latest"],
+        patts: ["/titles/recent"],
         handler: handleRecentlyAdded,
     },
 ]

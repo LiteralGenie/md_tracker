@@ -10,7 +10,7 @@ import {
     findKvSession,
     KvSession,
 } from "@/lib/utils/kv_utils"
-import { newIsoDate, postJson } from "@/lib/utils/misc_utils"
+import { nowIso, postJson } from "@/lib/utils/misc_utils"
 import { last } from "radash"
 
 export async function startDbReplication(db: Mdb) {
@@ -61,7 +61,7 @@ async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
                 INSERT OR IGNORE INTO meta (
                     key, value
                 ) VALUES (
-                    'changelog_id', 1
+                    'changelog_id', 0
                 )
             `,
             },
@@ -158,7 +158,7 @@ async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
                 .put({
                     ...r,
                     isReplicated: 1,
-                    updatedAt: newIsoDate(),
+                    updatedAt: nowIso(),
                 })
         }
         await txn.done
@@ -257,7 +257,7 @@ async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
                     id: r.id,
                     fromRemote: true,
                     isReplicated: 1,
-                    updatedAt: newIsoDate(),
+                    updatedAt: nowIso(),
                 })
         }
 
