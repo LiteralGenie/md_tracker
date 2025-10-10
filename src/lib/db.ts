@@ -2,37 +2,39 @@ import { ISODate } from "@/lib/utils/type_utils"
 import { DBSchema, IDBPDatabase, openDB } from "idb"
 
 export type Mdb = IDBPDatabase<MdTrackerSchema>
+export type MdId = string
 
 export async function initMdb(): Promise<Mdb> {
-    return await openDB<MdTrackerSchema>("md_tracker", 1, {
-        upgrade(db) {
-            const meta = db.createObjectStore("meta", {
-                keyPath: null,
-                autoIncrement: false,
-            })
+    return await openDB<MdTrackerSchema>("md_tracker", 2, {
+        upgrade(db, oldVersion, newVersion, txn) {
+            if (!oldVersion) {
+                db.createObjectStore("meta", {
+                    keyPath: null,
+                    autoIncrement: false,
+                })
 
-            const chapter_history = db.createObjectStore(
-                "chapter_history",
-                {
+                db.createObjectStore("chapter_history", {
                     keyPath: "id",
-                }
-            )
+                })
 
-            const chapter_history_replication_history =
                 db.createObjectStore(
                     "chapter_history_replication_history",
                     {
                         keyPath: "id",
                     }
                 )
-            chapter_history_replication_history.createIndex(
-                "isReplicated",
-                "isReplicated"
-            )
+                txn.objectStore(
+                    "chapter_history_replication_history"
+                ).createIndex("isReplicated", "isReplicated")
 
-            const md_api = db.createObjectStore("md_api", {
-                keyPath: "id",
-            })
+                db.createObjectStore("md_api", {
+                    keyPath: "id",
+                })
+            } else if (oldVersion === 1) {
+                db.createObjectStore("md_chapter_to_title", {
+                    keyPath: "chapter",
+                })
+            }
         },
     })
 }
@@ -43,10 +45,10 @@ export interface MdTrackerSchema extends DBSchema {
         value: any
     }
     chapter_history: {
-        key: string
+        key: MdId
         value: {
-            id: string
-            cid: string
+            id: MdId
+            cid: MdId
             timestamp: ISODate
         }
     }
@@ -58,11 +60,18 @@ export interface MdTrackerSchema extends DBSchema {
         }
     }
     md_api: {
-        key: string
+        key: MdId
         value: {
-            id: string
+            id: MdId
             data: any
             updatedAt: ISODate
+        }
+    }
+    md_chapter_to_title: {
+        key: MdId
+        value: {
+            chapter: MdId
+            title: MdId
         }
     }
 }

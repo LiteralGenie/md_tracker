@@ -20,13 +20,15 @@ async function main() {
 
     registerMenuCommands(mdb)
 
-    async function onNavigation(): Promise<AsyncCleanup> {
+    async function onNavigation(
+        abortSignal: AbortSignal
+    ): Promise<AsyncCleanup> {
         await exportLocalHistory(mdb)
         await importRemoteHistory(mdb)
 
         await startDbReplication(mdb)
 
-        const routeCleanup = await doRouting(mdb)
+        const routeCleanup = await doRouting(mdb, abortSignal)
 
         return async () => {
             await routeCleanup()
@@ -36,13 +38,17 @@ async function main() {
     // Don't need an initial onNavigation()
     // MD appears to trigger it via a replaceState event on page load
     let currHandler = Promise.resolve(async () => {})
+    let currAborter = new AbortController()
 
     // Each soft navigation (pushState, replaceState, popState) triggers a call to onNavigation()
     // If a previous onNavigation() was scheduled, wait for that finish and cleanup before starting the new one
     window.addEventListener("fake_navigate", () => {
+        currAborter.abort("abort")
+        currAborter = new AbortController()
+
         currHandler = currHandler.then(async (cleanup) => {
             await cleanup()
-            return await onNavigation()
+            return await onNavigation(currAborter.signal)
         })
     })
 }
@@ -54,14 +60,26 @@ const ROUTES = [
     },
 ]
 
-async function doRouting(mdb: Mdb): Promise<AsyncCleanup> {
+async function doRouting(
+    mdb: Mdb,
+    abortSignal: AbortSignal
+): Promise<AsyncCleanup> {
     for (const route of ROUTES) {
         for (const patt of route.patts) {
             const exp = new RegExp(patt)
 
             const isMatch = exp.test(window.location.pathname)
             if (isMatch) {
-                return await route.handler(mdb)
+                try {
+                    return await route.handler(mdb, abortSignal)
+                } catch (e) {
+                    if (e === "abort") {
+                        console.warn("Aborted route handler", route)
+                        return async () => {}
+                    } else {
+                        throw e
+                    }
+                }
             }
         }
     }

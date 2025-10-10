@@ -408,3 +408,42 @@ export async function getJson<T = any>(
 export function nowIso(): ISODate {
     return new Date().toISOString()
 }
+
+export type Fn<TArgs extends Array<any>, TReturn> = (
+    ...args: TArgs
+) => TReturn
+
+export interface ThrottleUntilSettledOpts<
+    TArgs extends Array<any>,
+    TReturn
+> {
+    fn: Fn<TArgs, TReturn>
+    interval: number
+}
+
+export function throttleUntilSettled<
+    TArgs extends Array<any>,
+    TReturn
+>(opts: ThrottleUntilSettledOpts<TArgs, TReturn>): Fn<TArgs, void> {
+    let lastCallTime = 0
+    let pendingCallId = 0
+
+    const wrapper: Fn<TArgs, void> = (...args) => {
+        clearTimeout(pendingCallId)
+
+        const now = Date.now()
+        const elapsed = now - lastCallTime
+        const remDelay = opts.interval - elapsed
+        if (remDelay <= 0) {
+            opts.fn(...args)
+            lastCallTime = now
+        } else {
+            pendingCallId = window.setTimeout(
+                () => opts.fn(...args),
+                remDelay
+            )
+        }
+    }
+
+    return wrapper
+}

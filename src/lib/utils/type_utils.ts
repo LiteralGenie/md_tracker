@@ -24,3 +24,7 @@ export type InferGuardType<T> =
 export type Or<A, B> = A extends never ? B : A
 
 export type ISODate = string
+
+export type MaybeReturnAsync<
+    T extends (...args: any) => Promise<any>
+> = null | Awaited<ReturnType<T>>
