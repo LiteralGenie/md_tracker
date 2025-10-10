@@ -45,7 +45,7 @@ export async function exportLocalHistory(db: Mdb) {
             })
         }
 
-        console.log(`Exporting MD history item`, {
+        console.debug(`Exporting MD history item`, {
             id,
             cid,
             timestamp,

@@ -7,34 +7,48 @@ export type MdId = string
 export async function initMdb(): Promise<Mdb> {
     return await openDB<MdTrackerSchema>("md_tracker", 2, {
         upgrade(db, oldVersion, newVersion, txn) {
-            if (!oldVersion) {
-                db.createObjectStore("meta", {
-                    keyPath: null,
-                    autoIncrement: false,
-                })
+            oldVersion = oldVersion ?? 0
+            const oldOldVersion = oldVersion
 
-                db.createObjectStore("chapter_history", {
-                    keyPath: "id",
-                })
+            while (true) {
+                if (oldVersion === 0) {
+                    db.createObjectStore("meta", {
+                        keyPath: null,
+                        autoIncrement: false,
+                    })
 
-                db.createObjectStore(
-                    "chapter_history_replication_history",
-                    {
+                    db.createObjectStore("chapter_history", {
                         keyPath: "id",
-                    }
-                )
-                txn.objectStore(
-                    "chapter_history_replication_history"
-                ).createIndex("isReplicated", "isReplicated")
+                    })
 
-                db.createObjectStore("md_api", {
-                    keyPath: "id",
-                })
-            } else if (oldVersion === 1) {
-                db.createObjectStore("md_chapter_to_title", {
-                    keyPath: "chapter",
-                })
+                    db.createObjectStore(
+                        "chapter_history_replication_history",
+                        {
+                            keyPath: "id",
+                        }
+                    )
+                    txn.objectStore(
+                        "chapter_history_replication_history"
+                    ).createIndex("isReplicated", "isReplicated")
+
+                    db.createObjectStore("md_api", {
+                        keyPath: "id",
+                    })
+                } else if (oldVersion === 1) {
+                    db.createObjectStore("md_chapter_to_title", {
+                        keyPath: "chapter",
+                    })
+                } else {
+                    break
+                }
+
+                newVersion = (oldVersion ?? 0) + 1
+                oldVersion = newVersion
             }
+
+            console.log(
+                `Migrated from ${oldOldVersion} to ${newVersion}`
+            )
         },
     })
 }

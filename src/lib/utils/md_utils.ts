@@ -39,7 +39,7 @@ export async function fetchMdSeenTitles(
             `/chapter/${r.cid}`,
             {
                 maxAgeMs: 365 * 86400 * 1000,
-                sleepMs: 333,
+                sleepMs: 250,
             }
         )) as null | {
             data: {
@@ -186,6 +186,10 @@ async function fetchMdApiCache<T = unknown>(
 
     // Simplify errors to null
     if (data.result !== "ok") {
+        if (data.errors?.[0]?.status !== 404) {
+            console.error("MD request failed", data)
+        }
+
         return null
     }
 
