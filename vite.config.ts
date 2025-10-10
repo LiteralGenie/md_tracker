@@ -9,31 +9,28 @@ export default defineConfig((config) => {
             monkey({
                 entry: "src/index.ts",
                 userscript: headers,
+                styleImport: false,
                 build: {
                     fileName: "md_tracker.user.js",
-                    cssSideEffects: () => {
-                        return (styles: string) => {
-                            function initCss(styles: string) {
-                                if (
-                                    // @ts-ignore
-                                    typeof GM_addStyle == "function"
-                                ) {
-                                    // @ts-ignore
-                                    GM_addStyle(styles)
-                                    return
-                                } else {
-                                    const o =
-                                        document.createElement(
-                                            "style"
-                                        )
-                                    o.textContent = styles
-                                    document.head.append(o)
-                                }
+                    cssSideEffects: (styles: string) => {
+                        function initCss(styles: string) {
+                            if (
+                                // @ts-ignore
+                                typeof GM_addStyle == "function"
+                            ) {
+                                // @ts-ignore
+                                GM_addStyle(styles)
+                                return
+                            } else {
+                                const o =
+                                    document.createElement("style")
+                                o.textContent = styles
+                                document.head.append(o)
                             }
-
-                            // @ts-ignore
-                            window.INIT_STYLES = () => initCss(styles)
                         }
+
+                        // @ts-ignore
+                        window.INIT_STYLES = () => initCss(styles)
                     },
                 },
             }),

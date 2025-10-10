@@ -1,7 +1,7 @@
 import { initMdb, Mdb } from "@/lib/db"
 import { registerMenuCommands } from "@/lib/register-menu-commands"
 import { startDbReplication } from "@/lib/replicate-db"
-import { handleLatest } from "@/lib/routes/latest/handleLatest"
+import { handleRecentlyAdded } from "@/lib/routes/recentlyAdded/handleRecentlyAdded"
 import {
     exportLocalHistory,
     importRemoteHistory,
@@ -9,8 +9,12 @@ import {
 
 type AsyncCleanup = () => Promise<void>
 
+import "@/app.css"
+
 async function main() {
     const mdb = await initMdb()
+
+    INIT_STYLES()
 
     hookNavigation()
 
@@ -46,7 +50,7 @@ async function main() {
 const ROUTES = [
     {
         patts: ["/titles/latest"],
-        handler: handleLatest,
+        handler: handleRecentlyAdded,
     },
 ]
 
@@ -66,11 +70,12 @@ async function doRouting(mdb: Mdb): Promise<AsyncCleanup> {
 }
 
 function hookNavigation() {
-    const pushState = history.pushState.bind(history)
-    history.pushState = (...args) => {
-        pushState(...args)
-        window.dispatchEvent(new Event("fake_navigate"))
-    }
+    // const pushState = history.pushState.bind(history)
+    // history.pushState = (...args) => {
+    //     pushState(...args)
+    //     window.dispatchEvent(new Event("fake_navigate"))
+    // }
+
     const replaceState = history.replaceState.bind(history)
     history.replaceState = (...args) => {
         replaceState(...args)
