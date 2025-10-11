@@ -10,16 +10,21 @@ export type MdTitlesSeen = Record<
     }
 >
 
+export interface FetchMdSeenTitlesOpts {
+    mdb: Mdb
+    mdToken: string
+    abortSignal?: AbortSignal
+    onlyCache: boolean
+}
+
 export async function fetchMdSeenTitles(
-    mdb: Mdb,
-    mdToken: string,
-    abortSignal: AbortSignal
+    opts: FetchMdSeenTitlesOpts
 ): Promise<MdTitlesSeen> {
     const seen: MdTitlesSeen = {}
 
     let lastProgressNotificataion = new Date().getTime()
 
-    const toCheck = await mdb.getAll("chapter_history")
+    const toCheck = await opts.mdb.getAll("chapter_history")
     for (const [idx, r] of enumerate(toCheck)) {
         const elapsed =
             new Date().getTime() - lastProgressNotificataion
@@ -33,13 +38,14 @@ export async function fetchMdSeenTitles(
         }
 
         const chapter = (await fetchMdApiCache<any>(
-            mdb,
+            opts.mdb,
             `/chapter/${r.cid}`,
-            mdToken,
+            opts.mdToken,
             `/chapter/${r.cid}`,
             {
                 maxAgeMs: 365 * 86400 * 1000,
                 sleepMs: 250,
+                onlyCache: opts.onlyCache,
             }
         )) as null | {
             data: {
@@ -60,7 +66,7 @@ export async function fetchMdSeenTitles(
         const tid = chapter.data.relationships.find(
             (x) => x.type === "manga"
         )!.id
-        await mdb.put("md_chapter_to_title", {
+        await opts.mdb.put("md_chapter_to_title", {
             chapter: r.cid,
             title: tid,
         })
@@ -71,7 +77,7 @@ export async function fetchMdSeenTitles(
         }
         seen[tid].chapters.add(r.cid)
 
-        abortSignal.throwIfAborted()
+        opts.abortSignal?.throwIfAborted()
     }
 
     return seen
@@ -138,6 +144,7 @@ export async function fetchMdApi<T = unknown>(
 interface FetchMdApiCacheOptions {
     maxAgeMs: number
     sleepMs?: number
+    onlyCache?: boolean
 }
 
 /**
@@ -170,7 +177,7 @@ async function fetchMdApiCache<T = unknown>(
     }
 
     // Fetch and cache
-    if (!data || isExpired) {
+    if ((!data || isExpired) && !opts.onlyCache) {
         if (opts?.sleepMs) {
             await sleep(opts.sleepMs)
         }
@@ -185,7 +192,7 @@ async function fetchMdApiCache<T = unknown>(
     }
 
     // Simplify errors to null
-    if (data.result !== "ok") {
+    if (data && data.result !== "ok") {
         if (data.errors?.[0]?.status !== 404) {
             console.error("MD request failed", data)
         }

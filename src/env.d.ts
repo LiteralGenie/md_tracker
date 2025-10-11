@@ -1,1 +1,10 @@
-declare const INIT_STYLES: () => void
+export {}
+
+declare global {
+    interface Window {
+        MD_TRACKER: {
+            styles: string
+            initCss: () => void
+        }
+    }
+}

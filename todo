@@ -1,0 +1,10 @@
+config
+config gui
+status gui
+hide
+    recently added
+    latest updates
+    by tags
+    by chapters read
+    by times visited
+deleted chapter

@@ -23,7 +23,17 @@ export async function handleRecentlyAdded(
     let seen = null as MaybeReturnAsync<typeof fetchMdSeenTitles>
     if (mdToken) {
         follows = await fetchMdFollows(mdb, mdToken)
-        seen = await fetchMdSeenTitles(mdb, mdToken, abortSignal)
+
+        // Mapping chapter id to title id can take a while,
+        // so just make do with whatever's in cache
+        // and run the update in background, letting it take effect next refresh
+        const seenOpts = {
+            mdb,
+            mdToken,
+            abortSignal,
+            onlyCache: true,
+        }
+        seen = await fetchMdSeenTitles(seenOpts)
     }
 
     const observer = new MutationObserver(

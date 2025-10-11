@@ -29,18 +29,14 @@ export default defineConfig((config) => {
                             }
                         }
 
-                        // @ts-ignore
-                        window.MD_TRACKER_STYLES =
-                            // @ts-ignore
-                            window.MD_TRACKER_STYLES ?? ""
+                        window.MD_TRACKER = window.MD_TRACKER ?? {
+                            styles: "",
+                        }
 
-                        // @ts-ignore
-                        window.MD_TRACKER_STYLES += "\n\n" + styles
+                        window.MD_TRACKER.styles += "\n\n" + styles
 
-                        // @ts-ignore
-                        window.INIT_STYLES = () =>
-                            // @ts-ignore
-                            initCss(window.MD_TRACKER_STYLES)
+                        window.MD_TRACKER.initCss = () =>
+                            initCss(window.MD_TRACKER.styles)
                     },
                 },
             }),
