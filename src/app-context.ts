@@ -135,9 +135,8 @@ function hookConsole() {
         const pad = (x: number, n = 2) =>
             x.toString().padStart(n, "0")
 
-        return `${pad(now.getHours())}:${pad(now.getSeconds())}.${pad(
-            now.getMilliseconds(),
-            3
-        )}`
+        return `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(
+            now.getSeconds()
+        )}.${pad(now.getMilliseconds(), 3)}`
     }
 }

@@ -3,3 +3,7 @@ hide
     search
     by times the series page is visited
 deleted chapter db
+sync server error should not prevent command registration
+show chapter count, start date, release cadence
+signals for reactivity instead of waiting for reload
+

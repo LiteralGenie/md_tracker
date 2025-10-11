@@ -17,9 +17,16 @@ const CONFIG_SCHEMA = z.object({
     ),
 
     syncServerUrl: z.nullable(
-        z.url({
-            normalize: true,
-        })
+        z.pipe(
+            z.url({
+                normalize: true,
+            }),
+            z.transform((url) =>
+                url.endsWith("/")
+                    ? url.substring(0, url.length - 1)
+                    : url
+            )
+        )
     ),
 
     tweakCardStyles: z.boolean(),
