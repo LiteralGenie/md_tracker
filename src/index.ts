@@ -10,10 +10,12 @@ import {
 type AsyncCleanup = () => Promise<void>
 
 import "@/app.css"
+import { ConfigOut, loadConfig } from "@/lib/config"
 import { fetchMdSeenTitles, findMdToken } from "@/lib/utils/md-utils"
 
 async function main() {
     const mdb = await initMdb()
+    const config = await loadConfig(mdb)
     const mdToken = findMdToken()
 
     // Append our css to <head>
@@ -61,7 +63,7 @@ async function main() {
 
         await startDbReplication(mdb)
 
-        const routeCleanup = await doRouting(mdb, abortSignal)
+        const routeCleanup = await doRouting(config, mdb, abortSignal)
 
         return async () => {
             await routeCleanup()
@@ -77,6 +79,7 @@ const ROUTES = [
 ]
 
 async function doRouting(
+    config: ConfigOut,
     mdb: Mdb,
     abortSignal: AbortSignal
 ): Promise<AsyncCleanup> {
@@ -87,7 +90,11 @@ async function doRouting(
             const isMatch = exp.test(window.location.pathname)
             if (isMatch) {
                 try {
-                    return await route.handler(mdb, abortSignal)
+                    return await route.handler(
+                        config,
+                        mdb,
+                        abortSignal
+                    )
                 } catch (e) {
                     if (e === "abort") {
                         console.warn("Aborted route handler", route)

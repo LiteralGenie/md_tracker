@@ -1,4 +1,4 @@
-import { CONFIG } from "@/config"
+import { ConfigOut } from "@/lib/config"
 import { Mdb, MdId } from "@/lib/db"
 import {
     fetchMdFollows,
@@ -14,6 +14,7 @@ import { MaybeReturnAsync } from "@/lib/utils/type-utils"
 import "./recentlyAdded.css"
 
 export async function handleRecentlyAdded(
+    config: ConfigOut,
     mdb: Mdb,
     abortSignal: AbortSignal
 ) {
@@ -60,7 +61,7 @@ export async function handleRecentlyAdded(
 
         for (const item of page) {
             const hasBlacklistedTag = item.tags.some(({ name }) =>
-                CONFIG.TAGS_BLACKLIST.has(name)
+                config.tagsBlacklist.has(name.toLocaleLowerCase())
             )
             if (hasBlacklistedTag) {
                 item.el.classList.add("mute")

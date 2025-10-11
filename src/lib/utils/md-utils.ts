@@ -21,11 +21,23 @@ export async function fetchMdSeenTitles(
     opts: FetchMdSeenTitlesOpts
 ): Promise<MdTitlesSeen> {
     const seen: MdTitlesSeen = {}
+    const done = new Set<string>()
+
+    const chapterToTitle = await opts.mdb.getAll(
+        "md_chapter_to_title"
+    )
+    for (const { chapter: cid, title: tid } of chapterToTitle) {
+        seen[tid] = seen[tid] ?? {
+            title: tid,
+            chapters: new Set(),
+        }
+        seen[tid].chapters.add(cid)
+        done.add(cid)
+    }
 
     let lastProgressNotificataion = new Date().getTime()
-
-    const toCheck = await opts.mdb.getAll("chapter_history")
-    for (const [idx, r] of enumerate(toCheck)) {
+    const history = await opts.mdb.getAll("chapter_history")
+    for (const [idx, r] of enumerate(history)) {
         const elapsed =
             new Date().getTime() - lastProgressNotificataion
         if (elapsed > 5000) {
@@ -33,8 +45,12 @@ export async function fetchMdSeenTitles(
             console.log(
                 `Fetching metadata for chapter history (${
                     idx + 1
-                } / ${toCheck.length}) ...`
+                } / ${history.length}) ...`
             )
+        }
+
+        if (done.has(r.cid)) {
+            continue
         }
 
         const chapter = (await fetchMdApiCache<any>(

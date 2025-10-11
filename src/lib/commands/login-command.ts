@@ -4,8 +4,8 @@ import { findKvSession } from "@/lib/utils/kv-utils"
 import { postJson, query } from "@/lib/utils/misc-utils"
 import { GM_registerMenuCommand } from "vite-plugin-monkey/dist/client"
 
-export async function registerLoginCommand(db: Mdb) {
-    const session = await findKvSession(db)
+export async function registerLoginCommand(mdb: Mdb) {
+    const session = await findKvSession(mdb)
 
     const caption = session
         ? `Sync Server Login (${session.username})`
@@ -24,7 +24,7 @@ export async function registerLoginCommand(db: Mdb) {
             })
             console.log("Generated sync server session", update)
 
-            await db.put("meta", update, META_KEY.KV_SESSION)
+            await mdb.put("meta", update, META_KEY.KV_SESSION)
 
             window.location.href = window.location.href
         },
@@ -34,7 +34,7 @@ export async function registerLoginCommand(db: Mdb) {
     )
 }
 
-export async function promptLogin(username?: string): Promise<null | {
+async function promptLogin(username?: string): Promise<null | {
     username: string
     password: string
 }> {
