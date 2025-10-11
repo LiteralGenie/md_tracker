@@ -26,4 +26,7 @@ git clone https://github.com/LiteralGenie/md_tracker/
 cd md_tracker
 npm i
 npm run dev
+
+# then open http://localhost:6231/md_tracker.user.js in browser
+# or manually copy-paste dist/md_tracker.user.js
 ```
