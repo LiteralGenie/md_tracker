@@ -39,6 +39,10 @@ async function main() {
     ): Promise<AsyncCleanup> {
         const routeCleanup = await doRouting(ctx, abortSignal)
 
+        if (ctx.config.tweakCardStyles) {
+            document.body.classList.add("mdt-card-tweaks")
+        }
+
         return async () => {
             await routeCleanup()
         }

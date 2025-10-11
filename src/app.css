@@ -1,32 +1,34 @@
-.manga-card.dense {
-    grid-template-areas:
-        "art title title author status"
-        "art tags tags tags tags"
-        "art stats _ _ _"
-        "art description description description description" !important;
+.mdt-card-tweaks {
+    .manga-card.dense {
+        grid-template-areas:
+            "art title title author status"
+            "art tags tags tags tags"
+            "art stats _ _ _"
+            "art description description description description" !important;
 
-    grid-template-columns: 84px auto auto 1fr auto !important;
-}
+        grid-template-columns: 84px auto auto 1fr auto !important;
+    }
 
-.manga-card .description {
-    max-height: none !important;
-    border-top: 1px solid rgba(255, 255, 255, 20%) !important;
-    margin-top: 0.75em !important;
-    padding-top: 0.75em !important;
-}
+    .manga-card .description {
+        max-height: none !important;
+        border-top: 1px solid rgba(255, 255, 255, 20%) !important;
+        margin-top: 0.75em !important;
+        padding-top: 0.75em !important;
+    }
 
-.manga-card .description:after {
-    display: none !important;
-}
+    .manga-card .description:after {
+        display: none !important;
+    }
 
-.manga-card .stats {
-    gap: 0.5em !important;
-}
+    .manga-card .stats {
+        gap: 0.5em !important;
+    }
 
-.manga-card .stats {
-    padding-top: 0.25em !important;
-}
+    .manga-card .stats {
+        padding-top: 0.25em !important;
+    }
 
-.manga-card .stat {
-    font-size: 0.8em !important;
+    .manga-card .stat {
+        font-size: 0.8em !important;
+    }
 }
