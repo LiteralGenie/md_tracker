@@ -3,7 +3,6 @@ import { spawnDialog } from "@/lib/commands/command-utils"
 import { ConfigOut, validateConfig, writeConfig } from "@/lib/config"
 import { query } from "@/lib/utils/misc-utils"
 import { GM_registerMenuCommand } from "vite-plugin-monkey/dist/client"
-import { ZodError } from "zod"
 
 export async function registerConfigCommand(ctx: AppContext) {
     GM_registerMenuCommand(
@@ -41,7 +40,7 @@ async function showEditDialog(
                 flex-direction: column;
             }
 
-            .field-list hr {
+            hr {
                 margin: 1.5rem 0.125rem;
                 border: 1px solid rgba(255,255,255, 10%);
             }
@@ -105,7 +104,28 @@ async function showEditDialog(
 
                 <div class="v-space"></div>
 
+                <p style="font-size: 0.9rem;">
+                    Most settings will only affect the Recently Added page.
+                </p>
+
+                <hr />
+
                 <div class="field-list">
+                    <div class="field">
+                        <label for="chaps-per-title">Chapter Threshold</label>
+                        <input
+                            id="chaps-per-title"
+                            type="number"
+                            placeholder="2" 
+                            min=1
+                            max=99
+                            step=1
+                        />
+                        <p class="description">Series with at least this many chapters read will be de-emphasized.</p>
+                    </div>
+
+                    <hr />
+
                     <div class="field">
                         <label for="tags-blacklist">Tags Blacklist</label>
                         <input
@@ -113,7 +133,7 @@ async function showEditDialog(
                             type="text"
                             placeholder="oneshot, long strip" 
                         />
-                        <p class="description">Hide series containing any of these tags. Tags should be separated by commas. Tags are not case-sensitive.</p>
+                        <p class="description">De-emphasize series containing any of these tags. Tags should be separated by commas. Tags are not case-sensitive.</p>
                     </div>
 
                     <hr />
@@ -173,6 +193,14 @@ async function showEditDialog(
         ".error-container p"
     )!
 
+    const chapsPerTitleEl = query<HTMLInputElement>(
+        formEl,
+        "#chaps-per-title"
+    )!
+    chapsPerTitleEl.value = String(
+        ctx.config.chaptersPerTitleThreshold
+    )
+
     const tagsBlacklistEl = query<HTMLInputElement>(
         formEl,
         "#tags-blacklist"
@@ -205,6 +233,9 @@ async function showEditDialog(
                     hideError()
 
                     const config = validateConfig({
+                        chaptersPerTitleThreshold: parseInt(
+                            chapsPerTitleEl.value
+                        ),
                         tagsBlacklist: tagsBlacklistEl
                             .value!.trim()
                             .split(","),
@@ -216,11 +247,18 @@ async function showEditDialog(
                     console.log("Updating config to", config)
 
                     resolve(config)
-                } catch (e) {
+                } catch (e: any) {
+                    console.error(e)
+
                     let errorText
-                    if (e instanceof ZodError) {
-                        errorText = e.issues
-                            .map((x) => x.message)
+                    if ("issues" in e) {
+                        errorText = (e.issues as any[])
+                            .map(
+                                (x) =>
+                                    x.message +
+                                    ": " +
+                                    x.path?.join(".")
+                            )
                             .join("\n")
                     } else {
                         console.error(e)

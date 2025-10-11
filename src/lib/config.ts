@@ -23,6 +23,8 @@ const CONFIG_SCHEMA = z.object({
     ),
 
     tweakCardStyles: z.boolean(),
+
+    chaptersPerTitleThreshold: z.int(),
 })
 
 const DEFAULT_CONFIG = () =>
@@ -30,6 +32,7 @@ const DEFAULT_CONFIG = () =>
         tagsBlacklist: [],
         syncServerUrl: null,
         tweakCardStyles: true,
+        chaptersPerTitleThreshold: 2,
     } satisfies ConfigIn)
 
 export async function loadConfig(mdb: Mdb) {

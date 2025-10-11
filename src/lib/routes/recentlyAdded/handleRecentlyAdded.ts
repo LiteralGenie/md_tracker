@@ -67,7 +67,10 @@ export async function handleRecentlyAdded(
                 const numChapsRead =
                     ctx.md.titlesSeen[item.title.id]?.chapters.size ??
                     0
-                if (numChapsRead >= 2) {
+                if (
+                    numChapsRead >=
+                    ctx.config.chaptersPerTitleThreshold
+                ) {
                     console.log("Spotted read", numChapsRead, item)
                     item.el.classList.add("mute")
                 }
