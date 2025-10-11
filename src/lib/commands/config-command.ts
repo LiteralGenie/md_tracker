@@ -1,14 +1,11 @@
 import { AppContext } from "@/app-context"
 import { spawnDialog } from "@/lib/commands/command-utils"
 import { ConfigOut, validateConfig, writeConfig } from "@/lib/config"
-import { findKvSession } from "@/lib/utils/kv-utils"
 import { query } from "@/lib/utils/misc-utils"
 import { GM_registerMenuCommand } from "vite-plugin-monkey/dist/client"
 import { ZodError } from "zod"
 
 export async function registerConfigCommand(ctx: AppContext) {
-    const session = await findKvSession(ctx.mdb)
-
     GM_registerMenuCommand(
         "Edit Config",
         async (ev) => {

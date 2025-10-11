@@ -29,6 +29,8 @@ export interface AppContext {
     }
 
     historySyncTask: Promise<unknown>
+
+    app_log: typeof APP_LOG
 }
 
 export async function initAppContext(): Promise<AppContext> {
@@ -78,11 +80,64 @@ export async function initAppContext(): Promise<AppContext> {
         await importRemoteHistory(mdb)
     })()
 
+    hookConsole()
+
     return {
         mdb,
         config,
         kv,
         md,
         historySyncTask,
+        app_log: APP_LOG,
+    }
+}
+
+export const APP_LOG = [] as string[]
+function hookConsole() {
+    const oldDebug = console.debug
+    console.debug = (...args) => {
+        oldDebug(...args)
+        APP_LOG.push(toLine("DEBUG", args))
+    }
+
+    const oldInfo = console.info
+    console.info = (...args) => {
+        oldInfo(...args)
+        APP_LOG.push(toLine("INFO", args))
+    }
+
+    const oldLog = console.log
+    console.log = (...args) => {
+        oldLog(...args)
+        APP_LOG.push(toLine("LOG", args))
+    }
+
+    const oldWarn = console.warn
+    console.warn = (...args) => {
+        oldWarn(...args)
+        APP_LOG.push(toLine("WARN", args))
+    }
+
+    const oldError = console.error
+    console.error = (...args) => {
+        oldError(...args)
+        APP_LOG.push(toLine("ERROR", args))
+    }
+
+    function toLine(level: string, args: any[]) {
+        return [`[${level}]`.padStart(7), "-", ts(), "-", ...args]
+            .map((x) => String(x))
+            .join(" ")
+    }
+
+    function ts() {
+        const now = new Date()
+        const pad = (x: number, n = 2) =>
+            x.toString().padStart(n, "0")
+
+        return `${pad(now.getHours())}:${pad(now.getSeconds())}.${pad(
+            now.getMilliseconds(),
+            3
+        )}`
     }
 }
