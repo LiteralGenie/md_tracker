@@ -34,6 +34,15 @@ export async function exportLocalHistory(mdb: Mdb) {
             timestamp,
         })
 
+        if (!mdb.get("chapter_history_replication_history", id)) {
+            await mdb.put("chapter_history_replication_history", {
+                id: id,
+                isReplicated: 0,
+                fromRemote: false,
+                updatedAt: new Date().toISOString(),
+            })
+        }
+
         console.debug(`Exporting MD history item`, {
             id,
             cid,

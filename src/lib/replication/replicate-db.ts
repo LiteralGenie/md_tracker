@@ -25,6 +25,7 @@ export async function startDbReplication(
         REPLICATION_CONFIGS.chapter_history,
         REPLICATION_CONFIGS.md_api,
     ].map(async (config) => {
+        console.log(`Replicating ${config.type} stores`)
         const replicator = new KvReplicator({
             clientId,
             session,
@@ -33,7 +34,7 @@ export async function startDbReplication(
             syncServerUrl,
         })
 
-        await replicator.insertMissingHistory()
+        // await replicator.insertMissingHistory()
         await replicator.createKvTable()
         await replicator.pushChanges()
         await replicator.pullChanges()

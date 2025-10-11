@@ -93,6 +93,7 @@ export async function fetchMdSeenTitles(
         }
         seen[tid].chapters.add(r.cid)
 
+        await sleep(0)
         opts.abortSignal?.throwIfAborted()
     }
 
@@ -204,6 +205,13 @@ async function fetchMdApiCache<T = unknown>(
             id: storageKey,
             data,
             updatedAt: nowIso(),
+        })
+
+        await mdb.put("md_api_replication_history", {
+            id: storageKey,
+            isReplicated: 0,
+            fromRemote: false,
+            updatedAt: new Date().toISOString(),
         })
     }
 
