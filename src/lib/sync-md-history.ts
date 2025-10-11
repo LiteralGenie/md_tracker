@@ -4,14 +4,14 @@ import { alphabetical } from "radash"
 /**
  * Export list of chapters-read from mangadex's localstorage to our db
  */
-export async function exportLocalHistory(db: Mdb) {
+export async function exportLocalHistory(mdb: Mdb) {
     const localHistory = readLocalHistory()
     if (!localHistory) {
         return
     }
 
     const toInsert: Array<{ cid: string; timestamp: string }> = []
-    const lastScan = await getLastScan(db)
+    const lastScan = await getLastScan(mdb)
     for (const [cid, timestamp] of localHistory) {
         if (lastScan && timestamp <= lastScan.timestamp) {
             break
@@ -28,22 +28,11 @@ export async function exportLocalHistory(db: Mdb) {
 
     for (const { cid, timestamp } of toInsert) {
         const id = `${timestamp}_${cid.substring(0, 10)}`
-        await db.put("chapter_history", {
+        await mdb.put("chapter_history", {
             id,
             cid,
             timestamp,
         })
-
-        if (
-            !(await db.get("chapter_history_replication_history", id))
-        ) {
-            await db.add("chapter_history_replication_history", {
-                id,
-                isReplicated: 0,
-                fromRemote: false,
-                updatedAt: new Date().toISOString(),
-            })
-        }
 
         console.debug(`Exporting MD history item`, {
             id,
@@ -51,7 +40,7 @@ export async function exportLocalHistory(db: Mdb) {
             timestamp,
         })
     }
-    await db.put(
+    await mdb.put(
         "meta",
         {
             timestamp: toInsert[0].timestamp,

@@ -8,44 +8,47 @@ import { createKvTable, KvSession } from "@/lib/utils/kv-utils"
 import { nowIso, postJson } from "@/lib/utils/misc-utils"
 import { last } from "radash"
 
-type ReplicationStore = "chapter_history"
-type HistoryMetaKey = "chapter_history_replication_history"
-type CheckpointMetaKey = "chapter_history_replication_checkpoint"
+export const REPLICATION_CONFIGS = {
+    chapter_history: {
+        type: "chapter_history",
+        kvTable: "mdt_chapter_history",
+        store: "chapter_history",
+        historyStore: "chapter_history_replication_history",
+        checkpointMetaKey: "chapter_history_replication_checkpoint",
+    },
+    md_api: {
+        type: "md_api",
+        kvTable: "mdt_md_api",
+        store: "md_api",
+        historyStore: "md_api_replication_history",
+        checkpointMetaKey: "md_api_replication_checkpoint",
+    },
+} as const
+export type ReplicationConfig =
+    (typeof REPLICATION_CONFIGS)[keyof typeof REPLICATION_CONFIGS]
 
 export interface KvReplicatorOpts {
     clientId: string
-    replicationType: string
-
-    kv: {
-        session: KvSession
-        table: string
-    }
-
-    idb: {
-        mdb: Mdb
-        replicationStore: ReplicationStore
-        historyMetaKey: HistoryMetaKey
-        checkpointMetaKey: CheckpointMetaKey
-    }
+    session: KvSession
+    mdb: Mdb
+    config: ReplicationConfig
 }
 
 export class KvReplicator {
     constructor(public readonly opts: KvReplicatorOpts) {}
 
     async createKvTable() {
-        const { session, table } = this.opts.kv
-
         await createKvTable(
             {
-                name: table,
+                name: this.opts.config.kvTable,
                 allow_guest_read: false,
                 allow_guest_write: false,
             },
-            session.sid
+            this.opts.session.sid
         )
 
         await postJson(
-            KV_URL + `/execute/${table}`,
+            KV_URL + `/execute/${this.opts.config.kvTable}`,
             {
                 sql: `--sql
                     CREATE TABLE IF NOT EXISTS meta (
@@ -68,19 +71,36 @@ export class KvReplicator {
             },
             {
                 headers: {
-                    sid: session.sid,
+                    sid: this.opts.session.sid,
                 },
             }
         )
     }
 
-    async pushChanges() {
-        const {
-            idb: { mdb },
-        } = this.opts
+    async insertMissingHistory() {
+        const rs = await this.opts.mdb.getAll(this.opts.config.store)
 
-        const needsReplication = await mdb.getAllFromIndex(
-            this.opts.idb.historyMetaKey,
+        for (const r of rs) {
+            const historyItem = await this.opts.mdb.get(
+                this.opts.config.historyStore,
+                r.id
+            )
+            if (!!historyItem) {
+                continue
+            }
+
+            await this.opts.mdb.add(this.opts.config.historyStore, {
+                id: r.id,
+                isReplicated: 0,
+                fromRemote: false,
+                updatedAt: new Date().toISOString(),
+            })
+        }
+    }
+
+    async pushChanges() {
+        const needsReplication = await this.opts.mdb.getAllFromIndex(
+            this.opts.config.historyStore,
             "isReplicated",
             0
         )
@@ -91,15 +111,15 @@ export class KvReplicator {
         const changes = await Promise.all(
             needsReplication.map(
                 async (r) =>
-                    (await mdb.get(
-                        this.opts.idb.replicationStore,
+                    (await this.opts.mdb.get(
+                        this.opts.config.store,
                         r.id
                     ))!
             )
         )
 
         console.log(
-            `Pushing ${changes.length} ${this.opts.replicationType} rows`,
+            `Pushing ${changes.length} ${this.opts.config.type} rows`,
             changes
         )
 
@@ -110,7 +130,7 @@ export class KvReplicator {
                     key, value
                 ) VALUES (
                     '${r.id}',
-                    '${JSON.stringify(r)}'
+                    '${JSON.stringify(r).replaceAll("'", "''")}'
                 );
             `
         )
@@ -146,23 +166,23 @@ export class KvReplicator {
         `
 
         await postJson(
-            KV_URL + `/execute/${this.opts.kv.table}`,
+            KV_URL + `/execute/${this.opts.config.kvTable}`,
             {
                 sql: script,
             },
             {
                 headers: {
-                    sid: this.opts.kv.session.sid,
+                    sid: this.opts.session.sid,
                 },
             }
         )
 
-        const txn = mdb.transaction(
-            this.opts.idb.historyMetaKey,
+        const txn = this.opts.mdb.transaction(
+            this.opts.config.historyStore,
             "readwrite"
         )
         for (const r of needsReplication) {
-            await txn.objectStore(this.opts.idb.historyMetaKey).put({
+            await txn.objectStore(this.opts.config.historyStore).put({
                 ...r,
                 isReplicated: 1,
                 updatedAt: nowIso(),
@@ -172,22 +192,20 @@ export class KvReplicator {
     }
 
     async pullChanges() {
-        const mdb = this.opts.idb.mdb
-
-        const checkpoint = (await mdb.get(
+        const checkpoint = (await this.opts.mdb.get(
             "meta",
-            this.opts.idb.checkpointMetaKey
+            this.opts.config.checkpointMetaKey
         )) as ReplicationHistoryCheckpoint | undefined
 
         console.info(
-            `Pulling ${this.opts.replicationType} updates with checkpoint`,
+            `Pulling ${this.opts.config.type} updates with checkpoint`,
             checkpoint
         )
 
         const changes = await postJson<
             Array<{ id: number; rows: string }>
         >(
-            KV_URL + `/select/${this.opts.kv.table}`,
+            KV_URL + `/select/${this.opts.config.kvTable}`,
             {
                 sql: `--sql
                     SELECT id, rows
@@ -201,7 +219,7 @@ export class KvReplicator {
             },
             {
                 headers: {
-                    sid: this.opts.kv.session.sid,
+                    sid: this.opts.session.sid,
                 },
             }
         )
@@ -218,7 +236,7 @@ export class KvReplicator {
         )
 
         const updates: Array<{ value: string }> = await postJson(
-            KV_URL + `/select/${this.opts.kv.table}`,
+            KV_URL + `/select/${this.opts.config.kvTable}`,
             {
                 sql: `--sql
                     SELECT value
@@ -230,39 +248,39 @@ export class KvReplicator {
             },
             {
                 headers: {
-                    sid: this.opts.kv.session.sid,
+                    sid: this.opts.session.sid,
                 },
             }
         )
 
         const documents = updates.map((r) =>
             JSON.parse(r.value)
-        ) as Array<MdTrackerSchema[ReplicationStore]["value"]>
+        ) as Array<
+            MdTrackerSchema[ReplicationConfig["store"]]["value"]
+        >
 
         console.info(
-            `Pulled ${documents.length} ${this.opts.replicationType} rows from remote with checkpoint update`,
+            `Pulled ${documents.length} ${this.opts.config.type} rows from remote with checkpoint update`,
             checkpointUpdate,
             documents
         )
 
-        const txn = mdb.transaction(
+        const txn = this.opts.mdb.transaction(
             [
                 "meta",
-                this.opts.idb.replicationStore,
-                this.opts.idb.historyMetaKey,
+                this.opts.config.store,
+                this.opts.config.historyStore,
             ] as const,
             "readwrite"
         )
 
         await txn
             .objectStore("meta")
-            .put(checkpointUpdate, this.opts.idb.checkpointMetaKey)
+            .put(checkpointUpdate, this.opts.config.checkpointMetaKey)
 
         for (const r of documents) {
-            await txn
-                .objectStore(this.opts.idb.replicationStore)
-                .put(r)
-            await txn.objectStore(this.opts.idb.historyMetaKey).put({
+            await txn.objectStore(this.opts.config.store).put(r)
+            await txn.objectStore(this.opts.config.historyStore).put({
                 id: r.id,
                 fromRemote: true,
                 isReplicated: 1,
