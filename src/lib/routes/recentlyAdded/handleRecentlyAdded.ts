@@ -1,10 +1,6 @@
-import { ConfigOut } from "@/lib/config"
-import { Mdb, MdId } from "@/lib/db"
-import {
-    fetchMdFollows,
-    fetchMdSeenTitles,
-    findMdToken,
-} from "@/lib/utils/md-utils"
+import { AppContext } from "@/appContext"
+import { MdId } from "@/lib/db"
+import { fetchMdFollows } from "@/lib/utils/md-utils"
 import {
     debounceUntilSettled,
     query,
@@ -14,27 +10,12 @@ import { MaybeReturnAsync } from "@/lib/utils/type-utils"
 import "./recentlyAdded.css"
 
 export async function handleRecentlyAdded(
-    config: ConfigOut,
-    mdb: Mdb,
+    ctx: AppContext,
     abortSignal: AbortSignal
 ) {
-    const mdToken = findMdToken()
-
     let follows = null as MaybeReturnAsync<typeof fetchMdFollows>
-    let seen = null as MaybeReturnAsync<typeof fetchMdSeenTitles>
-    if (mdToken) {
-        follows = await fetchMdFollows(mdb, mdToken)
-
-        // Mapping chapter id to title id can take a while,
-        // so just make do with whatever's in cache
-        // and run the update in background, letting it take effect next refresh
-        const seenOpts = {
-            mdb,
-            mdToken,
-            abortSignal,
-            onlyCache: true,
-        }
-        seen = await fetchMdSeenTitles(seenOpts)
+    if (ctx.md) {
+        follows = await fetchMdFollows(ctx.mdb, ctx.md.token)
     }
 
     const observer = new MutationObserver(
@@ -61,7 +42,7 @@ export async function handleRecentlyAdded(
 
         for (const item of page) {
             const hasBlacklistedTag = item.tags.some(({ name }) =>
-                config.tagsBlacklist.has(name.toLocaleLowerCase())
+                ctx.config.tagsBlacklist.has(name.toLocaleLowerCase())
             )
             if (hasBlacklistedTag) {
                 item.el.classList.add("mute")
@@ -81,10 +62,11 @@ export async function handleRecentlyAdded(
             }
         }
 
-        if (seen) {
+        if (ctx.md?.titlesSeen) {
             for (const item of page) {
                 const numChapsRead =
-                    seen[item.title.id]?.chapters.size ?? 0
+                    ctx.md.titlesSeen[item.title.id]?.chapters.size ??
+                    0
                 if (numChapsRead >= 2) {
                     console.log("Spotted read", numChapsRead, item)
                     item.el.classList.add("mute")
