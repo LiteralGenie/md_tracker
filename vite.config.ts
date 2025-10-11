@@ -29,14 +29,16 @@ export default defineConfig((config) => {
                             }
                         }
 
-                        window.MD_TRACKER = window.MD_TRACKER ?? {
-                            styles: "",
-                        }
+                        unsafeWindow.MD_TRACKER =
+                            unsafeWindow.MD_TRACKER ?? {
+                                styles: "",
+                            }
 
-                        window.MD_TRACKER.styles += "\n\n" + styles
+                        unsafeWindow.MD_TRACKER.styles +=
+                            "\n\n" + styles
 
-                        window.MD_TRACKER.initCss = () =>
-                            initCss(window.MD_TRACKER.styles)
+                        unsafeWindow.MD_TRACKER.initCss = () =>
+                            initCss(unsafeWindow.MD_TRACKER.styles)
                     },
                 },
             }),

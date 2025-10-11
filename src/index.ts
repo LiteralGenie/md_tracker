@@ -8,9 +8,10 @@ import "@/app.css"
 
 async function main() {
     const ctx = await initAppContext()
+    unsafeWindow.MD_TRACKER.ctx = ctx
 
     // Append our css to <head>
-    window.MD_TRACKER.initCss()
+    unsafeWindow.MD_TRACKER.initCss()
 
     // Add buttons to userscript manager
     registerMenuCommands(ctx)
@@ -23,7 +24,7 @@ async function main() {
 
     // Each soft navigation (pushState, replaceState, popState) triggers a call to onNavigation()
     // If a previous onNavigation() was scheduled, wait for that finish and cleanup before starting the new one
-    window.addEventListener("fake_navigate", () => {
+    unsafeWindow.addEventListener("fake_navigate", () => {
         currAborter.abort("abort")
         currAborter = new AbortController()
 

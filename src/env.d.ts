@@ -1,10 +1,13 @@
+import { AppContext } from "@/app-context"
+
 export {}
 
 declare global {
-    interface Window {
+    const unsafeWindow: Window & {
         MD_TRACKER: {
             styles: string
             initCss: () => void
+            ctx: AppContext
         }
     }
 }

@@ -29,7 +29,7 @@ export interface AppContext {
     }
 
     historySyncTask: Promise<unknown>
-    dbReplicationTask: Promise<unknown>
+    dbReplicationTask: null | Promise<unknown>
 }
 
 export async function initAppContext(): Promise<AppContext> {
@@ -76,7 +76,13 @@ export async function initAppContext(): Promise<AppContext> {
         importRemoteHistory(mdb)
     })()
 
-    const dbReplicationTask = startDbReplication(mdb)
+    let dbReplicationTask = null
+    if (config.syncServerUrl) {
+        dbReplicationTask = startDbReplication(
+            mdb,
+            config.syncServerUrl
+        )
+    }
 
     return {
         mdb,

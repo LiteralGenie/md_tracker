@@ -1,4 +1,4 @@
-import { KV_URL, META_KEY } from "@/lib/constants"
+import { META_KEY } from "@/lib/constants"
 import { Mdb } from "@/lib/db"
 import { postJson, uuidWithFallback } from "@/lib/utils/misc-utils"
 
@@ -9,10 +9,11 @@ export interface CreateKvTableOptions {
 }
 
 export async function createKvTable(
+    kvUrl: string,
     opts: CreateKvTableOptions,
     sid: string
 ) {
-    return await postJson(KV_URL + "/create_kv", opts, {
+    return await postJson(kvUrl + "/create_kv", opts, {
         headers: { sid },
     })
 }

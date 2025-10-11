@@ -1,34 +1,41 @@
 import { META_KEY } from "@/lib/constants"
 import { Mdb } from "@/lib/db"
-import z from "zod"
+import * as z from "zod/mini"
 
 export type ConfigIn = z.input<typeof CONFIG_SCHEMA>
 export type ConfigOut = z.output<typeof CONFIG_SCHEMA>
 
 const CONFIG_SCHEMA = z.object({
-    tagsBlacklist: z
-        .array(
-            z.string().transform((x) => x.toLocaleLowerCase()),
-            {}
-        )
-        .transform((xs) => new Set(xs)),
+    tagsBlacklist: z.pipe(
+        z.array(
+            z.pipe(
+                z.string(),
+                z.transform((x) => x.toLocaleLowerCase().trim())
+            )
+        ),
+        z.transform((xs) => new Set(xs.filter((x) => x.length > 0)))
+    ),
+
+    syncServerUrl: z.nullable(
+        z.url({
+            normalize: true,
+        })
+    ),
+
+    tweakCardStyles: z.boolean(),
 })
 
 const DEFAULT_CONFIG = () =>
     ({
         tagsBlacklist: [],
+        syncServerUrl: null,
+        tweakCardStyles: true,
     } satisfies ConfigIn)
 
 export async function loadConfig(mdb: Mdb) {
-    let configRaw: ConfigIn | null = await mdb.get(
-        "meta",
-        META_KEY.CONFIG
-    )
-
-    let needsUpdate = false
-    if (!configRaw) {
-        configRaw = DEFAULT_CONFIG()
-        needsUpdate = true
+    let configRaw: ConfigIn = {
+        ...DEFAULT_CONFIG(),
+        ...(await mdb.get("meta", META_KEY.CONFIG)),
     }
 
     let config: ConfigOut
@@ -38,12 +45,7 @@ export async function loadConfig(mdb: Mdb) {
         console.error("Ignoring invalid config", configRaw)
 
         configRaw = DEFAULT_CONFIG()
-        needsUpdate = true
-
         config = z.parse(CONFIG_SCHEMA, configRaw)
-    }
-
-    if (needsUpdate) {
         writeConfig(mdb, config)
     }
 
@@ -52,8 +54,13 @@ export async function loadConfig(mdb: Mdb) {
 
 export async function writeConfig(mdb: Mdb, config: ConfigOut) {
     const afterSerialize: ConfigIn = {
+        ...config,
         tagsBlacklist: [...config.tagsBlacklist],
     }
 
     await mdb.put("meta", afterSerialize, META_KEY.CONFIG)
+}
+
+export function validateConfig(config: ConfigIn): ConfigOut {
+    return z.parse(CONFIG_SCHEMA, config)
 }

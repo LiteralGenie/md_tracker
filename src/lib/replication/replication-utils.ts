@@ -1,4 +1,3 @@
-import { KV_URL } from "@/lib/constants"
 import {
     Mdb,
     MdTrackerSchema,
@@ -31,6 +30,7 @@ export interface KvReplicatorOpts {
     clientId: string
     session: KvSession
     mdb: Mdb
+    syncServerUrl: string
     config: ReplicationConfig
 }
 
@@ -39,6 +39,7 @@ export class KvReplicator {
 
     async createKvTable() {
         await createKvTable(
+            this.opts.syncServerUrl,
             {
                 name: this.opts.config.kvTable,
                 allow_guest_read: false,
@@ -48,7 +49,8 @@ export class KvReplicator {
         )
 
         await postJson(
-            KV_URL + `/execute/${this.opts.config.kvTable}`,
+            this.opts.syncServerUrl +
+                `/execute/${this.opts.config.kvTable}`,
             {
                 sql: `--sql
                     CREATE TABLE IF NOT EXISTS meta (
@@ -166,7 +168,8 @@ export class KvReplicator {
         `
 
         await postJson(
-            KV_URL + `/execute/${this.opts.config.kvTable}`,
+            this.opts.syncServerUrl +
+                `/execute/${this.opts.config.kvTable}`,
             {
                 sql: script,
             },
@@ -205,7 +208,8 @@ export class KvReplicator {
         const changes = await postJson<
             Array<{ id: number; rows: string }>
         >(
-            KV_URL + `/select/${this.opts.config.kvTable}`,
+            this.opts.syncServerUrl +
+                `/select/${this.opts.config.kvTable}`,
             {
                 sql: `--sql
                     SELECT id, rows
@@ -236,7 +240,8 @@ export class KvReplicator {
         )
 
         const updates: Array<{ value: string }> = await postJson(
-            KV_URL + `/select/${this.opts.config.kvTable}`,
+            this.opts.syncServerUrl +
+                `/select/${this.opts.config.kvTable}`,
             {
                 sql: `--sql
                     SELECT value

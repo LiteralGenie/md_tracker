@@ -7,7 +7,10 @@ import {
 } from "@/lib/replication/replication-utils"
 import { findClientId } from "@/lib/utils/kv-utils"
 
-export async function startDbReplication(mdb: Mdb) {
+export async function startDbReplication(
+    mdb: Mdb,
+    syncServerUrl: string
+) {
     const session = await findKvSession(mdb)
     if (!session) {
         console.warn(
@@ -27,6 +30,7 @@ export async function startDbReplication(mdb: Mdb) {
             session,
             mdb,
             config,
+            syncServerUrl,
         })
 
         await replicator.insertMissingHistory()

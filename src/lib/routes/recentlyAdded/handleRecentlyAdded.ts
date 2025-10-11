@@ -87,10 +87,10 @@ export interface RecentlyAddedItem {
         id: MdId
         name: string
     }>
-    comments: number
-    rating: number
-    follows: number
-    status: string
+    comments: number | null
+    rating: number | null
+    follows: number | null
+    status: string | null
 }
 
 function parsePage(): RecentlyAddedItem[] {
@@ -122,14 +122,15 @@ function parsePage(): RecentlyAddedItem[] {
                 query(cardEl, ".stat:nth-child(1)")!.textContent!
             )
 
-            const follows = parseInt(
+            let follows = parseInt(
                 query(
                     cardEl,
                     ".stat:nth-child(2)"
                 )!.textContent!.replace(",", "")
             )
 
-            const status = query(cardEl, ".status")!.textContent!
+            const status =
+                query(cardEl, ".status")?.textContent ?? null
 
             return {
                 el: cardEl,
@@ -140,8 +141,8 @@ function parsePage(): RecentlyAddedItem[] {
                 description,
                 tags,
                 comments,
-                rating,
-                follows,
+                rating: isNaN(rating) ? null : rating,
+                follows: isNaN(follows) ? null : follows,
                 status,
             }
         }
