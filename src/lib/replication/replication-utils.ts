@@ -4,39 +4,40 @@ import {
     MdTrackerSchema,
     ReplicationHistoryCheckpoint,
 } from "@/lib/db"
-import {
-    createKvTable,
-    findClientId,
-    findKvSession,
-    KvSession,
-} from "@/lib/utils/kv_utils"
-import { nowIso, postJson } from "@/lib/utils/misc_utils"
+import { createKvTable, KvSession } from "@/lib/utils/kv-utils"
+import { nowIso, postJson } from "@/lib/utils/misc-utils"
 import { last } from "radash"
 
-export async function startDbReplication(db: Mdb) {
-    const session = await findKvSession(db)
-    if (!session) {
-        console.warn(
-            "Skipping replication, not logged in to sync server"
-        )
-        return
+type ReplicationStore = "chapter_history"
+type HistoryMetaKey = "chapter_history_replication_history"
+type CheckpointMetaKey = "chapter_history_replication_checkpoint"
+
+export interface KvReplicatorOpts {
+    clientId: string
+    replicationType: string
+
+    kv: {
+        session: KvSession
+        table: string
     }
 
-    await replicateChapterHistory(db, session)
+    idb: {
+        mdb: Mdb
+        replicationStore: ReplicationStore
+        historyMetaKey: HistoryMetaKey
+        checkpointMetaKey: CheckpointMetaKey
+    }
 }
 
-async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
-    const clientId = await findClientId(mdb)
+export class KvReplicator {
+    constructor(public readonly opts: KvReplicatorOpts) {}
 
-    await createChapterHistoryTable()
+    async createKvTable() {
+        const { session, table } = this.opts.kv
 
-    await pushChanges()
-    await pullChanges()
-
-    async function createChapterHistoryTable() {
         await createKvTable(
             {
-                name: "mdt_chapter_history",
+                name: table,
                 allow_guest_read: false,
                 allow_guest_write: false,
             },
@@ -44,26 +45,26 @@ async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
         )
 
         await postJson(
-            KV_URL + `/execute/mdt_chapter_history`,
+            KV_URL + `/execute/${table}`,
             {
                 sql: `--sql
-                CREATE TABLE IF NOT EXISTS meta (
-                    key         TEXT        PRIMARY KEY,
-                    value       BLOB        NOT NULL
-                );
+                    CREATE TABLE IF NOT EXISTS meta (
+                        key         TEXT        PRIMARY KEY,
+                        value       BLOB        NOT NULL
+                    );
 
-                CREATE TABLE IF NOT EXISTS changelog (
-                    id          INTEGER     PRIMARY KEY,
-                    client_id   TEXT        NOT NULL,
-                    rows        JSON        NOT NULL
-                );
+                    CREATE TABLE IF NOT EXISTS changelog (
+                        id          INTEGER     PRIMARY KEY,
+                        client_id   TEXT        NOT NULL,
+                        rows        JSON        NOT NULL
+                    );
 
-                INSERT OR IGNORE INTO meta (
-                    key, value
-                ) VALUES (
-                    'changelog_id', 0
-                )
-            `,
+                    INSERT OR IGNORE INTO meta (
+                        key, value
+                    ) VALUES (
+                        'changelog_id', 0
+                    )
+                `,
             },
             {
                 headers: {
@@ -73,9 +74,13 @@ async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
         )
     }
 
-    async function pushChanges() {
+    async pushChanges() {
+        const {
+            idb: { mdb },
+        } = this.opts
+
         const needsReplication = await mdb.getAllFromIndex(
-            "chapter_history_replication_history",
+            this.opts.idb.historyMetaKey,
             "isReplicated",
             0
         )
@@ -85,12 +90,16 @@ async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
 
         const changes = await Promise.all(
             needsReplication.map(
-                async (r) => (await mdb.get("chapter_history", r.id))!
+                async (r) =>
+                    (await mdb.get(
+                        this.opts.idb.replicationStore,
+                        r.id
+                    ))!
             )
         )
 
         console.log(
-            `Pushing ${changes.length} chapter_history rows`,
+            `Pushing ${changes.length} ${this.opts.replicationType} rows`,
             changes
         )
 
@@ -111,7 +120,7 @@ async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
                 id, client_id, rows
             ) VALUES (
                 (SELECT value + 1 FROM meta WHERE key = 'changelog_id'),
-                '${clientId}',
+                '${this.opts.clientId}',
                 '${JSON.stringify(changes.map((r) => r.id))}'
             );
         `
@@ -137,59 +146,62 @@ async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
         `
 
         await postJson(
-            KV_URL + "/execute/mdt_chapter_history",
+            KV_URL + `/execute/${this.opts.kv.table}`,
             {
                 sql: script,
             },
             {
                 headers: {
-                    sid: session.sid,
+                    sid: this.opts.kv.session.sid,
                 },
             }
         )
 
         const txn = mdb.transaction(
-            "chapter_history_replication_history",
+            this.opts.idb.historyMetaKey,
             "readwrite"
         )
         for (const r of needsReplication) {
-            await txn
-                .objectStore("chapter_history_replication_history")
-                .put({
-                    ...r,
-                    isReplicated: 1,
-                    updatedAt: nowIso(),
-                })
+            await txn.objectStore(this.opts.idb.historyMetaKey).put({
+                ...r,
+                isReplicated: 1,
+                updatedAt: nowIso(),
+            })
         }
         await txn.done
     }
 
-    async function pullChanges() {
+    async pullChanges() {
+        const mdb = this.opts.idb.mdb
+
         const checkpoint = (await mdb.get(
             "meta",
-            "chapter_history_replication_checkpoint"
+            this.opts.idb.checkpointMetaKey
         )) as ReplicationHistoryCheckpoint | undefined
 
-        console.info("Pulling updates with checkpoint", checkpoint)
+        console.info(
+            `Pulling ${this.opts.replicationType} updates with checkpoint`,
+            checkpoint
+        )
 
         const changes = await postJson<
             Array<{ id: number; rows: string }>
         >(
-            KV_URL + `/select/mdt_chapter_history`,
+            KV_URL + `/select/${this.opts.kv.table}`,
             {
                 sql: `--sql
                     SELECT id, rows
                     FROM changelog c
                     WHERE
                         id > ${checkpoint?.changelog_id || 0}
-                        AND client_id != '${clientId}'
+                        AND client_id != '${this.opts.clientId}'
                     ORDER BY id ASC
                     ;
                 `,
             },
             {
                 headers: {
-                    sid: session.sid,
+                    sid: this.opts.kv.session.sid,
                 },
             }
         )
@@ -206,7 +218,7 @@ async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
         )
 
         const updates: Array<{ value: string }> = await postJson(
-            KV_URL + "/select/mdt_chapter_history",
+            KV_URL + `/select/${this.opts.kv.table}`,
             {
                 sql: `--sql
                     SELECT value
@@ -218,17 +230,17 @@ async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
             },
             {
                 headers: {
-                    sid: session.sid,
+                    sid: this.opts.kv.session.sid,
                 },
             }
         )
 
         const documents = updates.map((r) =>
             JSON.parse(r.value)
-        ) as Array<MdTrackerSchema["chapter_history"]["value"]>
+        ) as Array<MdTrackerSchema[ReplicationStore]["value"]>
 
         console.info(
-            `Pulled ${documents.length} rows from remote with checkpoint update`,
+            `Pulled ${documents.length} ${this.opts.replicationType} rows from remote with checkpoint update`,
             checkpointUpdate,
             documents
         )
@@ -236,29 +248,26 @@ async function replicateChapterHistory(mdb: Mdb, session: KvSession) {
         const txn = mdb.transaction(
             [
                 "meta",
-                "chapter_history",
-                "chapter_history_replication_history",
+                this.opts.idb.replicationStore,
+                this.opts.idb.historyMetaKey,
             ] as const,
             "readwrite"
         )
 
         await txn
             .objectStore("meta")
-            .put(
-                checkpointUpdate,
-                "chapter_history_replication_checkpoint"
-            )
+            .put(checkpointUpdate, this.opts.idb.checkpointMetaKey)
 
         for (const r of documents) {
-            await txn.objectStore("chapter_history").put(r)
             await txn
-                .objectStore("chapter_history_replication_history")
-                .put({
-                    id: r.id,
-                    fromRemote: true,
-                    isReplicated: 1,
-                    updatedAt: nowIso(),
-                })
+                .objectStore(this.opts.idb.replicationStore)
+                .put(r)
+            await txn.objectStore(this.opts.idb.historyMetaKey).put({
+                id: r.id,
+                fromRemote: true,
+                isReplicated: 1,
+                updatedAt: nowIso(),
+            })
         }
 
         await txn.done

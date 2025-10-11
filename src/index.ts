@@ -1,6 +1,6 @@
 import { initMdb, Mdb } from "@/lib/db"
 import { registerMenuCommands } from "@/lib/register-menu-commands"
-import { startDbReplication } from "@/lib/replicate-db"
+import { startDbReplication } from "@/lib/replication/replicate-db"
 import { handleRecentlyAdded } from "@/lib/routes/recentlyAdded/handleRecentlyAdded"
 import {
     exportLocalHistory,

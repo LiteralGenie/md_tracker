@@ -4,13 +4,13 @@ import {
     fetchMdFollows,
     fetchMdSeenTitles,
     findMdToken,
-} from "@/lib/utils/md_utils"
+} from "@/lib/utils/md-utils"
 import {
+    debounceUntilSettled,
     query,
     queryAll,
-    throttleUntilSettled,
-} from "@/lib/utils/misc_utils"
-import { MaybeReturnAsync } from "@/lib/utils/type_utils"
+} from "@/lib/utils/misc-utils"
+import { MaybeReturnAsync } from "@/lib/utils/type-utils"
 import "./recentlyAdded.css"
 
 export async function handleRecentlyAdded(
@@ -27,7 +27,7 @@ export async function handleRecentlyAdded(
     }
 
     const observer = new MutationObserver(
-        throttleUntilSettled({
+        debounceUntilSettled({
             fn: handleMutation,
             interval: 300,
         })

@@ -1,4 +1,4 @@
-import { ISODate } from "@/lib/utils/type_utils"
+import { ISODate } from "@/lib/utils/type-utils"
 import { DBSchema, IDBPDatabase, openDB } from "idb"
 
 export type Mdb = IDBPDatabase<MdTrackerSchema>

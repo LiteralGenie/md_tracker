@@ -1,5 +1,5 @@
 import { Mdb, MdId } from "@/lib/db"
-import { enumerate, nowIso } from "@/lib/utils/misc_utils"
+import { enumerate, nowIso } from "@/lib/utils/misc-utils"
 import { sleep } from "radash"
 
 export type MdTitlesSeen = Record<

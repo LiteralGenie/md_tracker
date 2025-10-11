@@ -1,7 +1,7 @@
 import { KV_URL, META_KEY } from "@/lib/constants"
 import { Mdb } from "@/lib/db"
-import { findKvSession } from "@/lib/utils/kv_utils"
-import { postJson, query } from "@/lib/utils/misc_utils"
+import { findKvSession } from "@/lib/utils/kv-utils"
+import { postJson, query } from "@/lib/utils/misc-utils"
 import { GM_registerMenuCommand } from "vite-plugin-monkey/dist/client"
 
 export async function registerLoginCommand(db: Mdb) {

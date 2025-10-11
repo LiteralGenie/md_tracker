@@ -1,6 +1,6 @@
 import { KV_URL, META_KEY } from "@/lib/constants"
 import { Mdb } from "@/lib/db"
-import { postJson, uuidWithFallback } from "@/lib/utils/misc_utils"
+import { postJson, uuidWithFallback } from "@/lib/utils/misc-utils"
 
 export interface CreateKvTableOptions {
     name: string

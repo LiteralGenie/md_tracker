@@ -1,5 +1,5 @@
 import { range, sleep, sum, zip } from "radash"
-import { InferGuardType, ISODate, Or } from "./type_utils"
+import { InferGuardType, ISODate, Or } from "./type-utils"
 
 export function split<T, TPass extends T = T, TFail extends T = T>(
     xs: T[],
@@ -421,7 +421,7 @@ export interface ThrottleUntilSettledOpts<
     interval: number
 }
 
-export function throttleUntilSettled<
+export function debounceUntilSettled<
     TArgs extends Array<any>,
     TReturn
 >(opts: ThrottleUntilSettledOpts<TArgs, TReturn>): Fn<TArgs, void> {
