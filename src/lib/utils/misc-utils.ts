@@ -374,7 +374,7 @@ export async function postJson<T = any>(
     })
 
     if (resp.status < 200 || resp.status >= 300) {
-        const e = new Error()
+        const e = new Error(`${resp.status} ${resp.statusText}`)
         e.cause = {
             type: "postJson",
             response: resp,

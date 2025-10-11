@@ -1,11 +1,13 @@
+import { AppContext } from "@/appContext"
+import { spawnDialog } from "@/lib/commands/command-utils"
 import { KV_URL, META_KEY } from "@/lib/constants"
 import { Mdb } from "@/lib/db"
 import { findKvSession } from "@/lib/utils/kv-utils"
 import { postJson, query } from "@/lib/utils/misc-utils"
 import { GM_registerMenuCommand } from "vite-plugin-monkey/dist/client"
 
-export async function registerLoginCommand(mdb: Mdb) {
-    const session = await findKvSession(mdb)
+export async function registerLoginCommand(ctx: AppContext) {
+    const session = await findKvSession(ctx.mdb)
 
     const caption = session
         ? `Sync Server Login (${session.username})`
@@ -14,19 +16,14 @@ export async function registerLoginCommand(mdb: Mdb) {
     GM_registerMenuCommand(
         caption,
         async (ev) => {
-            const result = await promptLogin(session?.username)
-            if (!result) return
+            const didLogin = await promptLogin(
+                ctx.mdb,
+                session?.username
+            )
 
-            const update = await postJson(KV_URL + "/login", {
-                username: result.username,
-                password: result.password,
-                duration: null,
-            })
-            console.log("Generated sync server session", update)
-
-            await mdb.put("meta", update, META_KEY.KV_SESSION)
-
-            window.location.href = window.location.href
+            if (didLogin) {
+                window.location.href = window.location.href
+            }
         },
         {
             id: "login",
@@ -34,18 +31,12 @@ export async function registerLoginCommand(mdb: Mdb) {
     )
 }
 
-async function promptLogin(username?: string): Promise<null | {
-    username: string
-    password: string
-}> {
-    const host = document.createElement("div")
-    host.id = "kv-login-container"
-    document.body.appendChild(host)
-
-    const shadow = host.attachShadow({ mode: "open" })
-
-    shadow.innerHTML = /*html*/ `
-        <style>
+async function promptLogin(
+    mdb: Mdb,
+    username?: string
+): Promise<boolean> {
+    const { hostEl, shadow, dialogEl } = spawnDialog({
+        css: /*css*/ `
             dialog {
                 max-width: 640px;
                 padding: 1.5rem;
@@ -154,63 +145,71 @@ async function promptLogin(username?: string): Promise<null | {
                     transparent 40%
                 );
             }
-        </style>
 
-        <dialog>
-            <form method="dialog">
+            .error-container p {
+                color: red;
+            }
+        `,
+        html: /*html*/ `
+            <form>
                 <h1>Sync Server Login</h1>
 
-                <div class="v-space"></div> 
+                <div class="v-space"></div>
 
                 ${
                     username
                         ? `
-                            <p class="text-muted">
-                                Currently logged in as ${username}
-                            </p>
+                <p class="text-muted">Currently logged in as ${username}</p>
 
-                            <div class="v-space"></div>
-                        `
+                <div class="v-space"></div>
+                `
                         : ""
                 }
-                
 
                 <p>
-                    Database will be periodically synced to / from <a href="${KV_URL}">${KV_URL}</a>
-                </p>
-                                                        
-                <p style="padding-top: 0.5em;">
-                    <b>Note:</b> It's recommended to create a dedicated account solely for MangaDex data.
-                    <br/>
-                    It's unlikely but technically possible for other scripts on this page to access these credentials.
+                    Database will be periodically synced to / from
+                    <a href="${KV_URL}">${KV_URL}</a>
                 </p>
 
-                <div class="v-space"></div> 
+                <p style="padding-top: 0.5em">
+                    <b>Note:</b> It's recommended to create a dedicated account
+                    solely for MangaDex data.
+                    <br />
+                    It's unlikely but technically possible for other scripts on
+                    this page to access these credentials.
+                </p>
 
-                <div style="display: flex; flex-flow: column; gap: 1em;">
+                <div class="v-space"></div>
+
+                <div class="error-container">
+                    <p> </p>
+                    <div class="v-space"></div>
+                </div>
+
+                <div style="display: flex; flex-flow: column; gap: 1em">
                     <label>
                         Username:
-                        <input autofocus type="text" name="username" required>
-                    </label> 
+                        <input autofocus type="text" name="username" required />
+                    </label>
 
                     <label>
                         Password:
-                        <input type="password" name="password" required>
+                        <input type="password" name="password" required />
                     </label>
                 </div>
 
-                <div class="v-space"></div> 
+                <div class="v-space"></div>
 
                 <menu>
                     <button id="login" value="login" type="submit">Login</button>
                     <button id="cancel" type="button">Cancel</button>
                 </menu>
             </form>
-        </dialog>
-    `
-    const dialogEl = query<HTMLDialogElement>(shadow, "dialog")!
+        `,
+    })
     dialogEl.showModal()
 
+    const formEl = query<HTMLFormElement>(shadow, "form")!
     const usernameEl = query<HTMLInputElement>(
         dialogEl,
         'input[name="username"]'
@@ -219,38 +218,77 @@ async function promptLogin(username?: string): Promise<null | {
         dialogEl,
         'input[name="password"]'
     )!
+    const submitEl = query<HTMLButtonElement>(dialogEl, "#login")!
+    const cancelEl = query<HTMLButtonElement>(dialogEl, "#cancel")!
+    const errorContainerEl = query<HTMLElement>(
+        dialogEl,
+        ".error-container"
+    )!
+    const errorTextEl = query<HTMLElement>(
+        dialogEl,
+        ".error-container p"
+    )!
 
     if (username) {
         usernameEl.value = username
-        usernameEl.focus()
     }
+    usernameEl.focus()
 
-    const result: ReturnType<typeof promptLogin> = new Promise(
-        (resolve, reject) => {
-            // On cancel
-            const cancelEl = query<HTMLButtonElement>(
-                shadow,
-                "#cancel"
-            )!
-            cancelEl.addEventListener("click", () => dialogEl.close())
+    return new Promise((resolve, reject) => {
+        // On cancel
+        cancelEl.addEventListener("click", () => {
+            close()
+            resolve(false)
+        })
 
-            // On valid submit
-            dialogEl.addEventListener("close", () => {
-                if (dialogEl.returnValue === "login") {
-                    const username = usernameEl.value
-                    const password = passwordEl.value
+        // On submit
+        formEl.addEventListener("submit", async (ev) => {
+            ev.preventDefault()
 
-                    return resolve({ username, password })
-                } else {
-                    resolve(null)
-                }
-            })
-        }
-    )
+            const toDisable = [
+                usernameEl,
+                passwordEl,
+                submitEl,
+                cancelEl,
+            ]
 
-    result.then(() => {
-        host.remove()
+            try {
+                hideError()
+
+                toDisable.forEach((el) => (el.disabled = true))
+
+                const update = await postJson(KV_URL + "/login", {
+                    username: usernameEl.value,
+                    password: passwordEl.value,
+                    duration: null,
+                })
+                console.log("Generated sync server session", update)
+
+                await mdb.put("meta", update, META_KEY.KV_SESSION)
+
+                close()
+                resolve(true)
+            } catch (e) {
+                showError(e)
+            } finally {
+                toDisable.forEach((el) => (el.disabled = false))
+            }
+        })
     })
 
-    return result
+    function close() {
+        dialogEl.close()
+        hostEl.remove()
+    }
+
+    function showError(e: any) {
+        console.error(e)
+        errorContainerEl.style.display = "block"
+        errorTextEl.textContent = String(e)
+    }
+
+    function hideError() {
+        errorContainerEl.style.display = "none"
+        errorTextEl.textContent = ""
+    }
 }
