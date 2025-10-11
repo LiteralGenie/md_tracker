@@ -1,4 +1,4 @@
-import { AppContext } from "@/appContext"
+import { AppContext } from "@/app-context"
 import { MdId } from "@/lib/db"
 import { fetchMdFollows } from "@/lib/utils/md-utils"
 import {

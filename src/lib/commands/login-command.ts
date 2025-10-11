@@ -1,16 +1,13 @@
-import { AppContext } from "@/appContext"
+import { AppContext } from "@/app-context"
 import { spawnDialog } from "@/lib/commands/command-utils"
 import { KV_URL, META_KEY } from "@/lib/constants"
 import { Mdb } from "@/lib/db"
-import { findKvSession } from "@/lib/utils/kv-utils"
 import { postJson, query } from "@/lib/utils/misc-utils"
 import { GM_registerMenuCommand } from "vite-plugin-monkey/dist/client"
 
 export async function registerLoginCommand(ctx: AppContext) {
-    const session = await findKvSession(ctx.mdb)
-
-    const caption = session
-        ? `Sync Server Login (${session.username})`
+    const caption = ctx.kv?.session
+        ? `Sync Server Login (${ctx.kv.session.username})`
         : `Sync Server Login`
 
     GM_registerMenuCommand(
@@ -18,7 +15,7 @@ export async function registerLoginCommand(ctx: AppContext) {
         async (ev) => {
             const didLogin = await promptLogin(
                 ctx.mdb,
-                session?.username
+                ctx.kv?.session.username
             )
 
             if (didLogin) {

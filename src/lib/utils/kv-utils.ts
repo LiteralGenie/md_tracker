@@ -24,9 +24,9 @@ export interface KvSession {
 }
 
 export async function findKvSession(
-    db: Mdb
+    mdb: Mdb
 ): Promise<KvSession | null> {
-    const session: KvSession | undefined = await db.get(
+    const session: KvSession | undefined = await mdb.get(
         "meta",
         META_KEY.KV_SESSION
     )
@@ -35,19 +35,19 @@ export async function findKvSession(
         return null
     } else if (session.expires < new Date().toISOString()) {
         alert("[MdTracker] Sync session expired")
-        await db.delete("meta", META_KEY.KV_SESSION)
+        await mdb.delete("meta", META_KEY.KV_SESSION)
         return null
     }
 
     return session
 }
 
-export async function findClientId(db: Mdb) {
-    let clientId = await db.get("meta", META_KEY.CLIENT_ID)
+export async function findClientId(mdb: Mdb) {
+    let clientId = await mdb.get("meta", META_KEY.CLIENT_ID)
 
     if (!clientId) {
         clientId = uuidWithFallback()
-        await db.put("meta", clientId, META_KEY.CLIENT_ID)
+        await mdb.put("meta", clientId, META_KEY.CLIENT_ID)
     }
 
     return clientId

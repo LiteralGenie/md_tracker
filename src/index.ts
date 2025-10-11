@@ -3,8 +3,8 @@ import { handleRecentlyAdded } from "@/lib/routes/recentlyAdded/handleRecentlyAd
 
 type AsyncCleanup = () => Promise<void>
 
+import { AppContext, initAppContext } from "@/app-context"
 import "@/app.css"
-import { AppContext, initAppContext } from "@/appContext"
 
 async function main() {
     const ctx = await initAppContext()
