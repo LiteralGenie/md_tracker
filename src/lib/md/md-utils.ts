@@ -1,104 +1,6 @@
 import { Mdb, MdId } from "@/lib/db"
-import { enumerate, nowIso } from "@/lib/utils/misc-utils"
+import { nowIso } from "@/lib/utils/misc-utils"
 import { sleep } from "radash"
-
-export type MdTitlesSeen = Record<
-    MdId,
-    {
-        title: MdId
-        chapters: Set<MdId>
-    }
->
-
-export interface FetchMdSeenTitlesOpts {
-    mdb: Mdb
-    mdToken: string
-    abortSignal?: AbortSignal
-    onlyCache: boolean
-}
-
-export async function fetchMdSeenTitles(
-    opts: FetchMdSeenTitlesOpts
-): Promise<MdTitlesSeen> {
-    const seen: MdTitlesSeen = {}
-    const done = new Set<string>()
-
-    const chapterToTitle = await opts.mdb.getAll(
-        "md_chapter_to_title"
-    )
-    for (const { chapter: cid, title: tid } of chapterToTitle) {
-        seen[tid] = seen[tid] ?? {
-            title: tid,
-            chapters: new Set(),
-        }
-        seen[tid].chapters.add(cid)
-        done.add(cid)
-    }
-
-    let lastProgressNotificataion = new Date().getTime()
-    const history = await opts.mdb.getAll("chapter_history")
-    for (const [idx, r] of enumerate(history)) {
-        const elapsed =
-            new Date().getTime() - lastProgressNotificataion
-        if (elapsed > 5000) {
-            lastProgressNotificataion = new Date().getTime()
-            console.log(
-                `Fetching metadata for chapter history (${
-                    idx + 1
-                } / ${history.length}) ...`
-            )
-        }
-
-        if (done.has(r.cid)) {
-            continue
-        }
-
-        const chapter = (await fetchMdApiCache<any>(
-            opts.mdb,
-            `/chapter/${r.cid}`,
-            opts.mdToken,
-            `/chapter/${r.cid}`,
-            {
-                maxAgeMs: 365 * 86400 * 1000,
-                sleepMs: 250,
-                onlyCache: opts.onlyCache,
-            }
-        )) as null | {
-            data: {
-                attributes: {}
-                id: MdId
-                relationships: Array<{
-                    id: MdId
-                    type: string
-                }>
-            }
-        }
-
-        if (!chapter) {
-            console.warn(`Unknown chapter ${r.cid}`)
-            continue
-        }
-
-        const tid = chapter.data.relationships.find(
-            (x) => x.type === "manga"
-        )!.id
-        await opts.mdb.put("md_chapter_to_title", {
-            chapter: r.cid,
-            title: tid,
-        })
-
-        seen[tid] = seen[tid] ?? {
-            title: tid,
-            chapters: new Set(),
-        }
-        seen[tid].chapters.add(r.cid)
-
-        await sleep(0)
-        opts.abortSignal?.throwIfAborted()
-    }
-
-    return seen
-}
 
 export type MdFollows = Record<
     MdId,
@@ -172,7 +74,7 @@ interface FetchMdApiCacheOptions {
  * @param opts
  * @returns response if successful, null on error
  */
-async function fetchMdApiCache<T = unknown>(
+export async function fetchMdApiCache<T = unknown>(
     mdb: Mdb,
     storageKey: string,
     mdToken: string,

@@ -1,5 +1,7 @@
 import { ConfigOut, loadConfig } from "@/lib/config"
 import { initMdb, Mdb, MdbSchema } from "@/lib/db"
+import { MdTitlesSeen } from "@/lib/md/fetch-titles-seen"
+import { findMdToken } from "@/lib/md/md-utils"
 import { startDbReplication } from "@/lib/replication/replicate-db"
 import { BehaviorSubject } from "@/lib/rx/behavior-subject"
 import {
@@ -7,7 +9,6 @@ import {
     importRemoteHistory,
 } from "@/lib/sync-md-history"
 import { findKvSession, KvSession } from "@/lib/utils/kv-utils"
-import { findMdToken } from "@/lib/utils/md-utils"
 
 export interface AppContext {
     mdb: Mdb
@@ -29,6 +30,7 @@ export interface AppContext {
                 MdbSchema["chapter_history"]["value"]
             >
         >
+        titlesSeen$: null | BehaviorSubject<MdTitlesSeen>
     }
 
     app_log: typeof APP_LOG
@@ -63,6 +65,7 @@ export async function initAppContext(): Promise<AppContext> {
         mdToken$,
         data: {
             chapterHistory$,
+            titlesSeen$: null,
         },
         app_log: APP_LOG,
     }

@@ -1,8 +1,13 @@
 import { AppContext } from "@/app-context"
 import { MdId } from "@/lib/db"
+import {
+    fetchMdTitlesSeen$,
+    MdTitlesSeen,
+} from "@/lib/md/fetch-titles-seen"
+import { fetchMdFollows, MdFollows } from "@/lib/md/md-utils"
+import { BehaviorSubject } from "@/lib/rx/behavior-subject"
 import { rx } from "@/lib/rx/rx"
 import { fromMutationObserver, mergeAll } from "@/lib/rx/rx-utils"
-import { fetchMdFollows, MdFollows } from "@/lib/utils/md-utils"
 import {
     debounceUntilSettled,
     query,
@@ -14,15 +19,16 @@ export async function handleRecentlyAdded(
     ctx: AppContext,
     abortSignal: AbortSignal
 ) {
+    // Rerun when follows are fetched
     const follows$ = new rx.BehaviorSubject<MdFollows | null>(null)
     follows$.name = "follow"
-
     const tokenSub = ctx.mdToken$.subscribeAsync(async (mdToken) => {
         if (mdToken && !follows$.value) {
             follows$.set(await fetchMdFollows(ctx.mdb, mdToken))
         }
     })
 
+    // Rerun when MD finishes fetching stats
     const [mutation$, observer] = fromMutationObserver(
         {
             target: document.body,
@@ -34,12 +40,32 @@ export async function handleRecentlyAdded(
     )
     mutation$.name = "mutation"
 
-    const change$ = mergeAll(mutation$, follows$)
+    // Rerun as titles-seen data is generated (from reading history + md api fetches)
+    let titlesSeenTask: Promise<unknown> | null = null
+    if (!ctx.data.titlesSeen$) {
+        ctx.data.titlesSeen$ = new BehaviorSubject<MdTitlesSeen>({})
+    }
+    const tokenSub2 = ctx.mdToken$.subscribeAsync(async (mdToken) => {
+        if (mdToken && !titlesSeenTask) {
+            titlesSeenTask = fetchMdTitlesSeen$({
+                data$: ctx.data.titlesSeen$!,
+                mdb: ctx.mdb,
+                mdToken: mdToken,
+                abortSignal,
+            })
+        }
+    })
+
+    const change$ = mergeAll(
+        mutation$,
+        follows$,
+        ctx.data.titlesSeen$!
+    )
     const changeSub = change$.subscribe(
         debounceUntilSettled({
             interval: 300,
-            fn: ([mutation, follows, { source }]) => {
-                handleMutation(follows)
+            fn: ([mutation, follows, titlesSeen, { source }]) => {
+                handleMutation(follows, titlesSeen)
             },
         })
     )
@@ -47,10 +73,14 @@ export async function handleRecentlyAdded(
     return async () => {
         observer.disconnect()
         tokenSub.unsubscribe()
+        tokenSub2.unsubscribe()
         changeSub.unsubscribe()
     }
 
-    async function handleMutation(follows: MdFollows | null) {
+    async function handleMutation(
+        follows: MdFollows | null,
+        titlesSeen: MdTitlesSeen
+    ) {
         const page = parsePage()
         console.log("Parsed page", page)
 
@@ -76,20 +106,16 @@ export async function handleRecentlyAdded(
             }
         }
 
-        // if (ctx.md?.titlesSeen) {
-        //     for (const item of page) {
-        //         const numChapsRead =
-        //             ctx.md.titlesSeen[item.title.id]?.chapters.size ??
-        //             0
-        //         if (
-        //             numChapsRead >=
-        //             ctx.config.chaptersPerTitleThreshold
-        //         ) {
-        //             console.log("Spotted read", numChapsRead, item)
-        //             item.el.classList.add("mute")
-        //         }
-        //     }
-        // }
+        for (const item of page) {
+            const numChapsRead =
+                titlesSeen[item.title.id]?.chapters.size ?? 0
+            if (
+                numChapsRead >= ctx.config.chaptersPerTitleThreshold
+            ) {
+                console.log("Spotted read", numChapsRead, item)
+                item.el.classList.add("mute")
+            }
+        }
     }
 }
 
