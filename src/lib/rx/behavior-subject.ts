@@ -1,22 +1,32 @@
 export type Subscriber<T> = (x: T) => void
+export type AsyncSubscriber<T> = (x: T) => Promise<void>
 export type ObsTransform<TIn, TOut> = (x: TIn) => TOut
 
+type SubId = any
+
 export class BehaviorSubject<T> {
-    sink: Map<any, Subscriber<T>> = new Map()
+    name = ""
+
+    sink: Map<SubId, Subscriber<T>> = new Map()
+
+    _pending: Map<
+        SubId,
+        { resultId: Symbol; result: Promise<void> }
+    > = new Map()
+
     source?: {
         subject: BehaviorSubject<any>
-        sub: Subscriber<any>
+        sub: ReturnType<BehaviorSubject<any>["subscribe"]>
     }
 
-    constructor(public _value: T) {}
+    constructor(public value: T) {}
 
-    get value() {
-        return this._value
+    get(): T {
+        return this.value
     }
 
-    set value(value) {
-        if (this._value === value) return
-        this._value = value
+    set(value: T) {
+        this.value = value
 
         for (const subFn of this.sink.values()) {
             subFn(value)
@@ -24,24 +34,70 @@ export class BehaviorSubject<T> {
     }
 
     subscribe(handler: Subscriber<T>, id?: any) {
-        const subFn = () => handler(this.value)
-
         id = id ?? Symbol()
-        this.sink.set(id, subFn)
 
-        subFn()
+        const subFn = (x: T) => handler(x)
 
-        const unsub = () => this.unsubscribe(id)
-        unsub._unsub_id = id
-        return unsub
+        return this.postSubscribe(id, subFn)
+    }
+
+    /**
+     * Same as subscribe() but accepts an async callback / handler
+     * The handler is always invoked "in-order"
+     *   eg if the value changes from 1 -> 2 -> 3
+     *      the handler will be invoked similar to
+     *      handler(1).then(() => handler(2)).then(() => handler(3))
+     * @param handler
+     * @param id
+     * @returns
+     */
+    subscribeAsync(handler: AsyncSubscriber<T>, id?: any) {
+        id = id ?? Symbol()
+
+        const notify = (x: T) => {
+            // If the handler is busy, wait for it finish before calling with new value
+            let result
+            const prev = this._pending.get(id)
+            if (!!prev) {
+                result = prev.result.then(() => handler(x))
+            } else {
+                result = handler(x)
+            }
+
+            // Assign id to new value and mark it as latest
+            const resultId = Symbol()
+            this._pending.set(id, { resultId, result })
+
+            // When the handler for new value is finally invoked
+            // and if the new value is still the newest value,
+            // delete the promise chain from pending to prevent leaks
+            result.then(() => {
+                const curr = this._pending.get(id)
+                if (curr?.resultId === resultId) {
+                    this._pending.delete(id)
+                }
+            })
+        }
+
+        return this.postSubscribe(id, notify)
+    }
+
+    private postSubscribe(
+        id: any,
+        notify: Subscriber<T> | AsyncSubscriber<T>
+    ) {
+        notify(this.value)
+
+        this.sink.set(id, notify)
+
+        return {
+            id,
+            unsubscribe: () => this.unsubscribe(id),
+        }
     }
 
     unsubscribe(id: any) {
         return this.sink.delete(id)
-    }
-
-    toString() {
-        return String(this._value)
     }
 
     pipe<TPipe extends PipeCandidate>(
@@ -57,15 +113,18 @@ export class BehaviorSubject<T> {
             return result as R
         }
 
-        const newSubj = new BehaviorSubject<R>(allTfms(this._value))
+        const newSubj = new BehaviorSubject<R>(allTfms(this.value))
         newSubj.source = {
             subject: this,
-            sub: this.subscribe((x) => (newSubj.value = allTfms(x))),
+            sub: this.subscribe((x) => newSubj.set(allTfms(x))),
         }
         return newSubj
     }
+
+    toString() {
+        return this.name.length > 0 ? this.name : String(this.value)
+    }
 }
-export const BS = <T>(x: T) => new BehaviorSubject(x)
 
 export type ExtractSubjectType<T$ extends BehaviorSubject<any>> =
     T$ extends BehaviorSubject<infer T> ? T : never

@@ -1,6 +1,6 @@
 import {
     Mdb,
-    MdTrackerSchema,
+    MdbSchema,
     ReplicationHistoryCheckpoint,
 } from "@/lib/db"
 import { createKvTable, KvSession } from "@/lib/utils/kv-utils"
@@ -260,9 +260,7 @@ export class KvReplicator {
 
         const documents = updates.map((r) =>
             JSON.parse(r.value)
-        ) as Array<
-            MdTrackerSchema[ReplicationConfig["store"]]["value"]
-        >
+        ) as Array<MdbSchema[ReplicationConfig["store"]]["value"]>
 
         console.info(
             `Pulled ${documents.length} ${this.opts.config.type} rows from remote with checkpoint update`,

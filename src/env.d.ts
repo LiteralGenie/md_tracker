@@ -1,4 +1,5 @@
 import { AppContext } from "@/app-context"
+import { DbChangeEvent } from "@/lib/db"
 
 export {}
 
@@ -9,5 +10,9 @@ declare global {
             initCss: () => void
             ctx: AppContext
         }
+    }
+
+    interface GlobalEventHandlersEventMap {
+        dbchange: DbChangeEvent
     }
 }

@@ -1,10 +1,17 @@
 import { ISODate } from "@/lib/utils/type-utils"
-import { DBSchema, IDBPDatabase, openDB } from "idb"
+import {
+    DBSchema,
+    IDBPDatabase,
+    IDBPTransaction,
+    openDB,
+    StoreNames,
+    StoreValue,
+} from "idb"
 
-export type Mdb = IDBPDatabase<MdTrackerSchema>
+export type Mdb = IDBPDatabase<MdbSchema>
 export type MdId = string
 
-export interface MdTrackerSchema extends DBSchema {
+export interface MdbSchema extends DBSchema {
     meta: {
         key: string
         value: any
@@ -37,7 +44,7 @@ export interface MdTrackerSchema extends DBSchema {
 }
 
 export async function initMdb(): Promise<Mdb> {
-    return await openDB<MdTrackerSchema>("md_tracker", 3, {
+    const db = await openDB<MdbSchema>("md_tracker", 3, {
         upgrade(db, oldVersion, newVersion, txn) {
             oldVersion = oldVersion ?? 0
             const oldOldVersion = oldVersion
@@ -93,6 +100,10 @@ export async function initMdb(): Promise<Mdb> {
             )
         },
     })
+
+    hookDbChanges(db)
+
+    return db
 }
 
 export interface ReplicationHistoryCheckpoint {
@@ -109,5 +120,106 @@ type ReplicationHistory = {
     }
     indexes: {
         isReplicated: 0 | 1
+    }
+}
+
+export type DbChange = {
+    [TStore in StoreNames<MdbSchema>]: { store: TStore } & {
+        op:
+            | {
+                  type: "add"
+                  value: StoreValue<MdbSchema, TStore>
+                  key?: MdbSchema[TStore]["key"]
+              }
+            | {
+                  type: "put"
+                  value: StoreValue<MdbSchema, TStore>
+                  key?: MdbSchema[TStore]["key"]
+              }
+            | {
+                  type: "delete"
+                  value?: undefined
+                  key: MdbSchema[TStore]["key"]
+              }
+            | { type: "clear"; value?: undefined; key?: undefined }
+    }
+}[StoreNames<MdbSchema>]
+
+export class DbChangeEvent extends Event {
+    changes: Array<DbChange> = []
+
+    constructor() {
+        super("dbchange")
+    }
+}
+
+// Emit a change event when a write transaction completes
+function hookDbChanges(db: IDBPDatabase<any>) {
+    const transaction = db.transaction.bind(db)
+    db.transaction = (
+        storeNames: string[] | string,
+        mode?: "readwrite" | "readonly",
+        options?: IDBTransactionOptions
+    ) => {
+        let txn = transaction(
+            storeNames,
+            mode,
+            options
+        ) as any as IDBPTransaction<any, [any], any>
+        if (mode !== "readwrite") {
+            return txn
+        }
+
+        const storeIds = (
+            Array.isArray(storeNames) ? storeNames : [storeNames]
+        ) as Array<StoreNames<MdbSchema>>
+
+        const changeEvent = new DbChangeEvent()
+
+        for (const storeId of storeIds) {
+            const store = txn.objectStore(storeId)
+
+            const add = store.add!.bind(store)
+            store.add = (value, key) => {
+                changeEvent.changes.push({
+                    store: storeId,
+                    op: { type: "add", value, key },
+                })
+                return add(value, key)
+            }
+
+            const put = store.put!.bind(store)
+            store.put = (value, key) => {
+                changeEvent.changes.push({
+                    store: storeId,
+                    op: { type: "put", value, key },
+                })
+                return put(value, key)
+            }
+
+            const delete_ = store.delete!.bind(store)
+            store.delete = (key) => {
+                changeEvent.changes.push({
+                    store: storeId,
+                    op: { type: "delete", key },
+                })
+                return delete_(key)
+            }
+
+            const clear = store.clear!.bind(store)
+            store.clear = () => {
+                changeEvent.changes.push({
+                    store: storeId,
+                    op: { type: "clear" },
+                })
+                return clear()
+            }
+        }
+
+        txn.addEventListener("complete", () => {
+            dispatchEvent(changeEvent)
+        })
+
+        return txn
     }
 }

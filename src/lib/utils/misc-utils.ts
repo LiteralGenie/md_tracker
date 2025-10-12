@@ -435,13 +435,15 @@ export function debounceUntilSettled<
         const elapsed = now - lastCallTime
         const remDelay = opts.interval - elapsed
         if (remDelay <= 0) {
+            console.log("call now", remDelay, lastCallTime, now)
             opts.fn(...args)
             lastCallTime = now
         } else {
-            pendingCallId = window.setTimeout(
-                () => opts.fn(...args),
-                remDelay
-            )
+            console.log("call later", remDelay, lastCallTime, now)
+            pendingCallId = window.setTimeout(() => {
+                console.log("call later now", remDelay)
+                opts.fn(...args)
+            }, remDelay)
         }
     }
 

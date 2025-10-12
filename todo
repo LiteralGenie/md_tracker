@@ -7,4 +7,5 @@ sync server error should not prevent command registration
 show chapter count, start date, release cadence
 signals for reactivity instead of waiting for reload
 show chapter list
-
+BehaviorSubjects are leaking
+    doesnt rxjs make child subjects only subscribe to parent subject if child has subscribers?

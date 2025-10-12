@@ -1,42 +1,56 @@
 import { AppContext } from "@/app-context"
 import { MdId } from "@/lib/db"
-import { fetchMdFollows } from "@/lib/utils/md-utils"
+import { rx } from "@/lib/rx/rx"
+import { fromMutationObserver, mergeAll } from "@/lib/rx/rx-utils"
+import { fetchMdFollows, MdFollows } from "@/lib/utils/md-utils"
 import {
     debounceUntilSettled,
     query,
     queryAll,
 } from "@/lib/utils/misc-utils"
-import { MaybeReturnAsync } from "@/lib/utils/type-utils"
 import "./recentlyAdded.css"
 
 export async function handleRecentlyAdded(
     ctx: AppContext,
     abortSignal: AbortSignal
 ) {
-    let follows = null as MaybeReturnAsync<typeof fetchMdFollows>
-    if (ctx.md) {
-        follows = await fetchMdFollows(ctx.mdb, ctx.md.token)
-    }
+    const follows$ = new rx.BehaviorSubject<MdFollows | null>(null)
+    follows$.name = "follow"
 
-    const observer = new MutationObserver(
-        debounceUntilSettled({
-            fn: handleMutation,
-            interval: 300,
-        })
-    )
-    observer.observe(document.body, {
-        subtree: true,
-        childList: true,
-        characterData: true,
+    const tokenSub = ctx.mdToken$.subscribeAsync(async (mdToken) => {
+        if (mdToken && !follows$.value) {
+            follows$.set(await fetchMdFollows(ctx.mdb, mdToken))
+        }
     })
 
-    handleMutation()
+    const [mutation$, observer] = fromMutationObserver(
+        {
+            target: document.body,
+            subtree: true,
+            childList: true,
+            characterData: true,
+        },
+        () => {}
+    )
+    mutation$.name = "mutation"
+
+    const change$ = mergeAll(mutation$, follows$)
+    const changeSub = change$.subscribe(
+        debounceUntilSettled({
+            interval: 300,
+            fn: ([mutation, follows, { source }]) => {
+                handleMutation(follows)
+            },
+        })
+    )
 
     return async () => {
         observer.disconnect()
+        tokenSub.unsubscribe()
+        changeSub.unsubscribe()
     }
 
-    async function handleMutation() {
+    async function handleMutation(follows: MdFollows | null) {
         const page = parsePage()
         console.log("Parsed page", page)
 
@@ -62,20 +76,20 @@ export async function handleRecentlyAdded(
             }
         }
 
-        if (ctx.md?.titlesSeen) {
-            for (const item of page) {
-                const numChapsRead =
-                    ctx.md.titlesSeen[item.title.id]?.chapters.size ??
-                    0
-                if (
-                    numChapsRead >=
-                    ctx.config.chaptersPerTitleThreshold
-                ) {
-                    console.log("Spotted read", numChapsRead, item)
-                    item.el.classList.add("mute")
-                }
-            }
-        }
+        // if (ctx.md?.titlesSeen) {
+        //     for (const item of page) {
+        //         const numChapsRead =
+        //             ctx.md.titlesSeen[item.title.id]?.chapters.size ??
+        //             0
+        //         if (
+        //             numChapsRead >=
+        //             ctx.config.chaptersPerTitleThreshold
+        //         ) {
+        //             console.log("Spotted read", numChapsRead, item)
+        //             item.el.classList.add("mute")
+        //         }
+        //     }
+        // }
     }
 }
 
