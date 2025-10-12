@@ -21,9 +21,6 @@ export interface AppContext {
 
     mdToken$: BehaviorSubject<string | null>
 
-    // @fixme: how should reactive data be provided / structured?
-    //         anything reactive in the global context like this?
-    //         maybe the core ones here and anything else can derive from there?
     data: {
         chapterHistory$: BehaviorSubject<
             Map<
