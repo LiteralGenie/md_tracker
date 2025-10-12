@@ -1,8 +1,9 @@
 import { AppContext } from "@/app-context"
 import { MdId } from "@/lib/db"
 import {
-    fetchMdTitlesSeen$,
+    fetchMdTitlesSeen,
     MdTitlesSeen,
+    updateMdTitlesSeen$,
 } from "@/lib/md/fetch-titles-seen"
 import { fetchMdFollows, MdFollows } from "@/lib/md/md-utils"
 import { BehaviorSubject } from "@/lib/rx/behavior-subject"
@@ -44,10 +45,15 @@ export async function handleRecentlyAdded(
     let titlesSeenTask: Promise<unknown> | null = null
     if (!ctx.data.titlesSeen$) {
         ctx.data.titlesSeen$ = new BehaviorSubject<MdTitlesSeen>({})
+        updateMdTitlesSeen$(
+            ctx.mdb,
+            ctx.data.titlesSeen$,
+            ctx.mdToken$
+        )
     }
     const tokenSub2 = ctx.mdToken$.subscribeAsync(async (mdToken) => {
         if (mdToken && !titlesSeenTask) {
-            titlesSeenTask = fetchMdTitlesSeen$({
+            titlesSeenTask = fetchMdTitlesSeen({
                 data$: ctx.data.titlesSeen$!,
                 mdb: ctx.mdb,
                 mdToken: mdToken,

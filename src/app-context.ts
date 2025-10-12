@@ -9,6 +9,7 @@ import {
     importRemoteHistory,
 } from "@/lib/sync-md-history"
 import { findKvSession, KvSession } from "@/lib/utils/kv-utils"
+import { sleep } from "radash"
 
 export interface AppContext {
     mdb: Mdb
@@ -37,6 +38,8 @@ export interface AppContext {
 }
 
 export async function initAppContext(): Promise<AppContext> {
+    startMdStorageMonitorTask(500)
+
     const mdb = await initMdb()
     const config = await loadConfig(mdb)
 
@@ -91,6 +94,26 @@ function monitorMdToken() {
     updateToken()
 
     return mdToken$
+}
+
+/**
+ * Watch MD's localstorage entry for changes
+ * @param intervalMs
+ */
+async function startMdStorageMonitorTask(intervalMs: number) {
+    let currValue = localStorage.getItem("md")
+    while (true) {
+        await sleep(intervalMs)
+        const newValue = localStorage.getItem("md")
+        if (newValue !== currValue) {
+            currValue = newValue
+            dispatchEvent(
+                new StorageEvent("storage", {
+                    key: "md",
+                })
+            )
+        }
+    }
 }
 
 async function monitorChapterHistory(mdb: Mdb) {
