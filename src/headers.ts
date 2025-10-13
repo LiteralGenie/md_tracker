@@ -4,7 +4,7 @@ export default {
     name: "md_tracker",
     match: ["https://mangadex.org/*"],
     grant: ["unsafeWindow"],
-    version: "0.1",
-    // updateURL: "@todo",
-    // downloadURL: "@todo",
+    version: "1.1.0",
+    downloadURL:
+        "https://github.com/LiteralGenie/md_tracker/releases/download/latest/md_tracker.user.js",
 } satisfies MonkeyUserScript
