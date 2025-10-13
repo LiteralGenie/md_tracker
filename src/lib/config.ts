@@ -16,16 +16,6 @@ const CONFIG_SCHEMA = z.object({
         z.transform((xs) => new Set(xs.filter((x) => x.length > 0)))
     ),
 
-    languages: z.pipe(
-        z.array(
-            z.pipe(
-                z.string(),
-                z.transform((x) => x.toLocaleLowerCase().trim())
-            )
-        ),
-        z.transform((xs) => xs.filter((x) => x.length > 0))
-    ),
-
     syncServerUrl: z.nullable(
         z.pipe(
             z.url({
@@ -47,7 +37,6 @@ const CONFIG_SCHEMA = z.object({
 const DEFAULT_CONFIG = () =>
     ({
         tagsBlacklist: [],
-        languages: ["en"],
         syncServerUrl: null,
         tweakCardStyles: true,
         chaptersPerTitleThreshold: 2,

@@ -19,6 +19,18 @@ export function findMdToken(): string | null {
     return token
 }
 
+export function findMdLanguages(): string[] {
+    const mdRaw = localStorage.getItem("md")
+    const md = JSON.parse(mdRaw ?? "{}")
+
+    const languages = md?.userPreferences?.filteredLanguages ?? []
+    if (languages.length === 0) {
+        languages.push("en")
+    }
+
+    return languages
+}
+
 export async function fetchMdApi<T = unknown>(
     path: string,
     token: string | null

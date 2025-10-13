@@ -5,7 +5,11 @@ import {
     MdTitlesSeen,
     updateMdTitlesSeen$,
 } from "@/lib/md/fetch-titles-seen"
-import { fetchMdFollows, MdFollows } from "@/lib/md/md-utils"
+import {
+    fetchMdFollows,
+    findMdLanguages,
+    MdFollows,
+} from "@/lib/md/md-utils"
 import {
     FeedMapValue,
     fetchChapters$,
@@ -75,8 +79,7 @@ export async function handleRecentlyAdded(
     const [feedMap$, unsubFeedMap] = switchWhen(
         mutation$.pipe(() => parsePage().map((x) => x.title.id)),
         (titles) => titles.length > 0,
-        (titles) =>
-            fetchChapters$(ctx.mdb, ctx.config.languages, titles)
+        (titles) => fetchChapters$(ctx.mdb, findMdLanguages(), titles)
     )
 
     const change$ = mergeAll(
