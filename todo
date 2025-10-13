@@ -8,3 +8,4 @@ show chapter count, start date, release cadence
 show chapter list
 BehaviorSubjects are leaking
     doesnt rxjs make child subjects only subscribe to parent subject if child has subscribers?
+minimum average page count

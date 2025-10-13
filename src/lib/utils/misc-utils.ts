@@ -449,3 +449,7 @@ export function debounceUntilSettled<
 
     return wrapper
 }
+
+export function padNumber(x: number, n: number): string {
+    return x.toString().padStart(n, "0")
+}

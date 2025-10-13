@@ -6,9 +6,18 @@ import {
     updateMdTitlesSeen$,
 } from "@/lib/md/fetch-titles-seen"
 import { fetchMdFollows, MdFollows } from "@/lib/md/md-utils"
+import {
+    FeedMapValue,
+    fetchChapters$,
+    renderChapterList,
+} from "@/lib/routes/recentlyAdded/chapter-list"
 import { BehaviorSubject } from "@/lib/rx/behavior-subject"
 import { rx } from "@/lib/rx/rx"
-import { fromMutationObserver, mergeAll } from "@/lib/rx/rx-utils"
+import {
+    fromMutationObserver,
+    mergeAll,
+    switchWhen,
+} from "@/lib/rx/rx-utils"
 import {
     debounceUntilSettled,
     query,
@@ -41,7 +50,7 @@ export async function handleRecentlyAdded(
     )
     mutation$.name = "mutation"
 
-    // Rerun as titles-seen data is generated (from reading history + md api fetches)
+    // Rerun when titles-seen data is generated (from reading history + md api fetches)
     let titlesSeenTask: Promise<unknown> | null = null
     if (!ctx.data.titlesSeen$) {
         ctx.data.titlesSeen$ = new BehaviorSubject<MdTitlesSeen>({})
@@ -62,16 +71,31 @@ export async function handleRecentlyAdded(
         }
     })
 
+    // Rerun when chapter list is fetched
+    const [feedMap$, unsubFeedMap] = switchWhen(
+        mutation$.pipe(() => parsePage().map((x) => x.title.id)),
+        (titles) => titles.length > 0,
+        (titles) =>
+            fetchChapters$(ctx.mdb, ctx.config.languages, titles)
+    )
+
     const change$ = mergeAll(
         mutation$,
         follows$,
-        ctx.data.titlesSeen$!
+        ctx.data.titlesSeen$!,
+        feedMap$
     )
     const changeSub = change$.subscribe(
         debounceUntilSettled({
             interval: 300,
-            fn: ([mutation, follows, titlesSeen, { source }]) => {
-                handleMutation(follows, titlesSeen)
+            fn: ([
+                mutation,
+                follows,
+                titlesSeen,
+                feedMap,
+                { source },
+            ]) => {
+                handleMutation(follows, titlesSeen, feedMap.value)
             },
         })
     )
@@ -81,11 +105,13 @@ export async function handleRecentlyAdded(
         tokenSub.unsubscribe()
         tokenSub2.unsubscribe()
         changeSub.unsubscribe()
+        unsubFeedMap()
     }
 
     async function handleMutation(
         follows: MdFollows | null,
-        titlesSeen: MdTitlesSeen
+        titlesSeen: MdTitlesSeen,
+        feedMap: FeedMapValue | null
     ) {
         const page = parsePage()
         console.log("Parsed page", page)
@@ -120,6 +146,13 @@ export async function handleRecentlyAdded(
             ) {
                 console.log("Spotted read", numChapsRead, item)
                 item.el.classList.add("mute")
+            }
+        }
+
+        for (const item of page) {
+            const manga = feedMap?.[item.title.id]
+            if (manga) {
+                renderChapterList(item.el, manga)
             }
         }
     }

@@ -1,5 +1,11 @@
+import { sleep } from "radash"
+
 export type Subscriber<T> = (x: T) => void
 export type AsyncSubscriber<T> = (x: T) => Promise<void>
+export type SubscribeReturn = {
+    id: any
+    unsubscribe: () => void
+}
 export type ObsTransform<TIn, TOut> = (x: TIn) => TOut
 
 type SubId = any
@@ -16,7 +22,7 @@ export class BehaviorSubject<T> {
 
     source?: {
         subject: BehaviorSubject<any>
-        sub: ReturnType<BehaviorSubject<any>["subscribe"]>
+        sub: SubscribeReturn
     }
 
     constructor(public value: T) {}
@@ -33,7 +39,11 @@ export class BehaviorSubject<T> {
         }
     }
 
-    subscribe(handler: Subscriber<T>, id?: any) {
+    refresh() {
+        this.set(this.value)
+    }
+
+    subscribe(handler: Subscriber<T>, id?: any): SubscribeReturn {
         id = id ?? Symbol()
 
         const subFn = (x: T) => handler(x)
@@ -51,7 +61,10 @@ export class BehaviorSubject<T> {
      * @param id
      * @returns
      */
-    subscribeAsync(handler: AsyncSubscriber<T>, id?: any) {
+    subscribeAsync(
+        handler: AsyncSubscriber<T>,
+        id?: any
+    ): SubscribeReturn {
         id = id ?? Symbol()
 
         const notify = (x: T) => {
@@ -59,7 +72,10 @@ export class BehaviorSubject<T> {
             let result
             const prev = this._pending.get(id)
             if (!!prev) {
-                result = prev.result.then(() => handler(x))
+                result = prev.result.then(async () => {
+                    await sleep(0)
+                    handler(x)
+                })
             } else {
                 result = handler(x)
             }

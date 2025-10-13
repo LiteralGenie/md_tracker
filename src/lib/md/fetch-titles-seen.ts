@@ -128,7 +128,6 @@ async function fetchTitleForChapter(
         `/chapter/${cid}`,
         {
             maxAgeMs: 365 * 86400 * 1000,
-            sleepMs: 250,
         }
     )) as null | {
         data: {

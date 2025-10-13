@@ -1,4 +1,7 @@
-import { BehaviorSubject } from "@/lib/rx/behavior-subject"
+import {
+    BehaviorSubject,
+    SubscribeReturn,
+} from "@/lib/rx/behavior-subject"
 import { enumerate } from "@/lib/utils/misc-utils"
 
 export function fromMutationObserver<
@@ -61,4 +64,43 @@ export function mergeAll<T extends Array<BehaviorSubject<any>>>(
     }
 
     return merged
+}
+
+type SwitchWhenReturn<T> = BehaviorSubject<
+    | { first: false; value: T; sub: SubscribeReturn }
+    | { first: true; value: null }
+>
+
+export function switchWhen<TSource, TTarget>(
+    source: BehaviorSubject<TSource>,
+    condition: (src: TSource) => boolean,
+    mapping: (src: TSource) => BehaviorSubject<TTarget>
+): [SwitchWhenReturn<TTarget>, SubscribeReturn["unsubscribe"]] {
+    const subj$ = new BehaviorSubject({
+        first: true,
+        value: null,
+    }) as SwitchWhenReturn<TTarget>
+
+    let targetSub = null as SubscribeReturn | null
+    const sourceSub = source.subscribe((x) => {
+        if (condition(x)) {
+            sourceSub.unsubscribe()
+
+            const target$ = mapping(x)
+            targetSub = target$.subscribe((value) => {
+                subj$.set({
+                    first: false,
+                    value,
+                    sub: targetSub!,
+                })
+            })
+        }
+    })
+
+    let unsub: SubscribeReturn["unsubscribe"] = () => {
+        sourceSub.unsubscribe()
+        targetSub?.unsubscribe()
+    }
+
+    return [subj$, unsub]
 }

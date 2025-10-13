@@ -1,0 +1,118 @@
+.description {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+
+    .md-md-container {
+        border-right: 1px solid;
+        border-color: color-mix(
+            in oklab,
+            white,
+            transparent 80%
+        ) !important;
+        padding-right: 12px;
+        margin-right: 8px;
+    }
+}
+
+.mdt-chapter-list {
+    display: flex;
+    flex-flow: column;
+    max-height: 200px;
+    overflow: auto;
+
+    .mdt-chapter {
+        display: grid;
+        grid-template-areas:
+            "title user"
+            "date  group";
+        gap: 0px 12px;
+        width: 100%;
+        max-width: 400px;
+        text-decoration: none;
+        color: white !important;
+        font-size: 0.8em;
+
+        grid-template-columns: 2fr 1fr;
+        padding: 6px 8px;
+
+        .mdt-title {
+            grid-area: title;
+            font-weight: 500;
+            min-width: 0;
+        }
+
+        .mdt-user {
+            grid-area: user;
+        }
+
+        .mdt-group {
+            grid-area: group;
+        }
+
+        .mdt-date {
+            grid-area: date;
+        }
+
+        .mdt-title,
+        .mdt-user,
+        .mdt-group,
+        .mdt-date {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+
+    .mdt-chapter-container {
+        &:hover {
+            background-color: #434343;
+        }
+    }
+
+    hr {
+        width: 100;
+        border-top: 1px solid;
+        border-color: color-mix(in oklab, white, transparent 80%);
+    }
+}
+
+@media (max-width: 50rem) {
+    .description {
+        display: flex;
+        flex-flow: column;
+        border: 0 !important;
+        padding-top: 0;
+        margin-top: 0 !important;
+
+        .md-md-container {
+            border-right: 0;
+            border-top: 1px solid;
+            border-color: color-mix(in oklab, white, transparent 80%);
+            padding-top: 8px;
+            margin-top: 8px;
+
+            padding-right: 0px;
+            padding-bottom: 12px;
+
+            margin-right: 0px;
+            margin-bottom: 0px;
+        }
+
+        .mdt-chapter-list {
+            border-top: 1px solid;
+            border-color: color-mix(in oklab, white, transparent 80%);
+        }
+
+        .mdt-chapter-container {
+            padding-left: 12px;
+        }
+
+        .mdt-chapter {
+            max-width: 500px;
+        }
+
+        .md-md-container.empty {
+            display: none !important;
+        }
+    }
+}
