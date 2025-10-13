@@ -28,7 +28,7 @@ async function showDialog(ctx: AppContext): Promise<void> {
 
             pre {
                 font-size: 0.75rem;
-                overflow: auto;
+                overflow-y: auto;
             }
 
             menu {

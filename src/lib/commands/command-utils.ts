@@ -40,6 +40,9 @@ const COMMON_CSS = /*css*/ `
         background: #1e1e1e;
         color: #f0f0f0;
         line-height: 1.5;
+        width: 80%;
+        height: 80%;
+        overflow: auto;
     }
 
     label {
