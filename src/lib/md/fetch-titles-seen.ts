@@ -37,7 +37,7 @@ export function updateMdTitlesSeen$(
             switch (c.op.type) {
                 case "add":
                 case "put":
-                    cid = c.op.value.id
+                    cid = c.op.value.cid
                     break
                 case "delete":
                 case "clear":

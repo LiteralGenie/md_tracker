@@ -1,5 +1,5 @@
 @import "./chapter-list.css";
 
-.manga-card.mute:not(:hover):not(:focus) {
+.mute:not(:hover):not(:focus) {
     opacity: 0.5;
 }

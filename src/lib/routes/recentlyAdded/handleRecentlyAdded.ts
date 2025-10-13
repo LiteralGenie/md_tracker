@@ -155,7 +155,11 @@ export async function handleRecentlyAdded(
         for (const item of page) {
             const manga = feedMap?.[item.title.id]
             if (manga) {
-                renderChapterList(item.el, manga)
+                renderChapterList(
+                    item.el,
+                    manga,
+                    titlesSeen[item.title.id]?.chapters ?? []
+                )
             }
         }
     }
