@@ -3,6 +3,7 @@ Userscript that tweaks MD's Recently Added page. Mostly aimed at filtering out a
 -   Greys out manga that's already been added to library.
 -   Greys out manga that have had at least N chapters read.
 -   Greys out manga based on tags.
+-   Add chapter list.
 -   CSS tweaks
     -   Moves stats to below title (ratings, comment count, follow count)
     -   Series description is never truncated
