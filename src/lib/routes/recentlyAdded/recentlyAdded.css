@@ -3,3 +3,9 @@
 .mute:not(:hover):not(:focus) {
     opacity: 0.5;
 }
+
+.high:not(.mute) {
+    .title {
+        color: orange;
+    }
+}

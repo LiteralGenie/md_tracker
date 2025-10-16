@@ -126,6 +126,13 @@ export async function handleRecentlyAdded(
             if (hasBlacklistedTag) {
                 item.el.classList.add("mute")
             }
+
+            const isHigh =
+                item.rating &&
+                item.rating > ctx.config.highRatingThreshold
+            if (isHigh) {
+                item.el.classList.add("high")
+            }
         }
 
         if (follows) {

@@ -120,6 +120,7 @@ async function showEditDialog(
                             min=1
                             max=99
                             step=1
+                            required
                         />
                         <p class="description">Series with at least this many chapters read will be de-emphasized.</p>
                     </div>
@@ -134,6 +135,21 @@ async function showEditDialog(
                             placeholder="oneshot, long strip" 
                         />
                         <p class="description">De-emphasize series containing any of these tags. Tags should be separated by commas. Tags are not case-sensitive.</p>
+                    </div>
+
+                    <hr />
+
+                    <div class="field">
+                        <label for="rating">High Rating Threshold</label>
+                        <input
+                            id="rating"
+                            type="number"
+                            placeholder="8"
+                            min=1
+                            max=11
+                            required
+                        />
+                        <p class="description">Series above this rating will be highlighted.</p>
                     </div>
 
                     <hr />
@@ -218,6 +234,9 @@ async function showEditDialog(
         tweakCardStylesEl.click()
     }
 
+    const ratingEl = query<HTMLInputElement>(formEl, "#rating")!
+    ratingEl.value = String(ctx.config.highRatingThreshold)
+
     const result: ReturnType<typeof showEditDialog> = new Promise(
         (resolve, reject) => {
             // On cancel
@@ -241,6 +260,9 @@ async function showEditDialog(
                             .split(","),
                         syncServerUrl:
                             syncServerEl.value!.trim() || null,
+                        highRatingThreshold: parseFloat(
+                            ratingEl.value!
+                        ),
                         tweakCardStyles: tweakCardStylesEl.checked,
                     })
 

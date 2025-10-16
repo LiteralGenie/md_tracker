@@ -29,6 +29,8 @@ const CONFIG_SCHEMA = z.object({
         )
     ),
 
+    highRatingThreshold: z.number(),
+
     tweakCardStyles: z.boolean(),
 
     chaptersPerTitleThreshold: z.int(),
@@ -39,6 +41,7 @@ const DEFAULT_CONFIG = () =>
         tagsBlacklist: [],
         syncServerUrl: null,
         tweakCardStyles: true,
+        highRatingThreshold: 8.75,
         chaptersPerTitleThreshold: 2,
     } satisfies ConfigIn)
 
