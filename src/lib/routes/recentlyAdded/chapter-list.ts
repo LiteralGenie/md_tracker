@@ -81,7 +81,7 @@ export async function renderChapterList(
             const group = ch.relationships.find(
                 (x) => x.type === "scanlation_group"
             )
-            const groupElHtml = group
+            const groupElHtml = group?.attributes?.name
                 ? `<div class="mdt-group"> ${group.attributes.name} </div>`
                 : ""
 

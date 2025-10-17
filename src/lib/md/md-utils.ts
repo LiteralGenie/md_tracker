@@ -179,7 +179,7 @@ export interface MdMangaFeed {
             | {
                   type: "scanlation_group"
                   id: string
-                  attributes: {
+                  attributes?: {
                       name: string
                   }
               }

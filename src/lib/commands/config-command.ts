@@ -117,9 +117,9 @@ async function showEditDialog(
                             id="chaps-per-title"
                             type="number"
                             placeholder="2" 
-                            min=1
-                            max=99
-                            step=1
+                            min="1"
+                            max="99"
+                            step="1"
                             required
                         />
                         <p class="description">Series with at least this many chapters read will be de-emphasized.</p>
@@ -145,8 +145,9 @@ async function showEditDialog(
                             id="rating"
                             type="number"
                             placeholder="8"
-                            min=1
-                            max=11
+                            min="1"
+                            max="11"
+                            step="0.01"
                             required
                         />
                         <p class="description">Series above this rating will be highlighted.</p>
