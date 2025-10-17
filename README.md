@@ -17,7 +17,7 @@ Sample images: https://github.com/LiteralGenie/md_tracker/tree/master/readme_fil
 # Setup
 
 - Install the [ViolentMonkey extension](https://violentmonkey.github.io/) (other userscript managers may work but untested).
-- Add [md_tracker.user.js](https://github.com/LiteralGenie/md_tracker/releases) to ViolentMonkey.
+- Add [md_tracker.user.js](https://github.com/LiteralGenie/md_tracker/releases/tag/latest) to ViolentMonkey.
 - (optional) In the ViolentMonkey [menu](readme_files/menu_options.png), click the ["Edit Config" option](readme_files/config.png).
 
 # Development
